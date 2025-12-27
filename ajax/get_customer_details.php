@@ -33,6 +33,16 @@ if ($chk->num_rows === 0) {
 }
 $chk->close();
 
+// Fetch customer details
+$custStmt = $conn->prepare("SELECT c.*, f.name AS factory_name 
+                            FROM customers c 
+                            LEFT JOIN factories f ON c.factory_id = f.id 
+                            WHERE c.id = ?");
+$custStmt->bind_param("i", $customer_id);
+$custStmt->execute();
+$customer = $custStmt->get_result()->fetch_assoc();
+$custStmt->close();
+
 // fetch contacts
 $stmt = $conn->prepare("SELECT id, name, phone, is_primary
                         FROM customer_contacts
@@ -49,5 +59,9 @@ while ($r = $res->fetch_assoc()) {
 }
 $stmt->close();
 
-echo json_encode(['success' => true, 'contacts' => $contacts], JSON_UNESCAPED_UNICODE);
+echo json_encode([
+    'success' => true,
+    'customer' => $customer,
+    'contacts' => $contacts
+], JSON_UNESCAPED_UNICODE);
 exit;

@@ -18,27 +18,94 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     try {
         $pdo->beginTransaction();
 
+        $rawItems = $_POST['items'] ?? [];
+        $factoryId = !empty($_POST['factory_id']) ? (int)$_POST['factory_id'] : null;
+        $orderItems = [];
+        $itemsSubtotal = 0;
+        $freeSampleCount = 0;
+
+        foreach ($rawItems as $item) {
+            $productId = isset($item['product_id']) ? (int)$item['product_id'] : 0;
+            $quantity = isset($item['quantity']) ? (int)$item['quantity'] : 0;
+            $unitPrice = isset($item['price']) ? (float)$item['price'] : 0;
+            $isFreeSample = !empty($item['is_free_sample']) ? 1 : 0;
+
+            if ($productId <= 0 || $quantity <= 0) {
+                continue;
+            }
+
+            $lineTotal = $quantity * $unitPrice;
+
+            if ($isFreeSample) {
+                $freeSampleCount += $quantity;
+                $lineTotal = 0;
+            } else {
+                $itemsSubtotal += $lineTotal;
+            }
+
+            $orderItems[] = [
+                'product_id' => $productId,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'total_price' => $lineTotal,
+                'is_free_sample' => $isFreeSample
+            ];
+        }
+
+        if (empty($orderItems)) {
+            throw new Exception('Please select at least one valid product to create an order.');
+        }
+
+        $discount_percentage = isset($_POST['discount_percentage']) ? max(0, min(100, (float)$_POST['discount_percentage'])) : 0;
+        $discount_basis_options = ['none', 'product_quantity', 'cash', 'free_sample', 'mixed'];
+        $discount_basis = $_POST['discount_basis'] ?? 'none';
+        if (!in_array($discount_basis, $discount_basis_options, true)) {
+            $discount_basis = 'none';
+        }
+        $discount_product_count = isset($_POST['discount_product_count']) ? max(0, (int)$_POST['discount_product_count']) : 0;
+        $manualDiscount = isset($_POST['discount_cash_amount']) ? max(0, (float)$_POST['discount_cash_amount']) : 0;
+
+        $percentageDiscountValue = $discount_percentage > 0 ? ($itemsSubtotal * ($discount_percentage / 100)) : 0;
+        $discount_amount = round(min($itemsSubtotal, $percentageDiscountValue + $manualDiscount), 2);
+
+        $shipping_cost_type = $_POST['shipping_cost_type'] ?? 'none';
+        $shippingCost = 0;
+        if ($shipping_cost_type === 'manual') {
+            $shippingCost = isset($_POST['shipping_cost']) ? max(0, (float)$_POST['shipping_cost']) : 0;
+        } else {
+            $shipping_cost_type = 'none';
+        }
+
+        $total_amount = max(0, $itemsSubtotal - $discount_amount) + $shippingCost;
+        $notes = $_POST['notes'] ?? null;
+
         // Insert order
         $stmt = $pdo->prepare("
             INSERT INTO orders (
-                internal_id, customer_id, contact_id, order_date, status, 
-                total_amount, paid_amount, notes, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                internal_id, customer_id, factory_id, contact_id, order_date, status, 
+                total_amount, paid_amount, discount_percentage, discount_basis, discount_amount,
+                discount_product_count, free_sample_count, shipping_cost_type, shipping_cost,
+                notes, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
-
-        $total_amount = array_sum(array_map(function ($item) {
-            return $item['quantity'] * $item['price'];
-        }, $_POST['items']));
 
         $stmt->execute([
             $_POST['internal_id'],
             $_POST['customer_id'],
+            $factoryId,
             $_POST['contact_id'],
             $_POST['order_date'],
             'new',
             $total_amount,
             0.00,
-            $_POST['notes'],
+            $discount_percentage,
+            $discount_basis,
+            $discount_amount,
+            $discount_product_count,
+            $freeSampleCount,
+            $shipping_cost_type,
+            $shippingCost,
+            $notes,
             $_SESSION['user_id']
         ]);
 
@@ -46,33 +113,31 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
 
         // Insert order items
         $stmt = $pdo->prepare("
-            INSERT INTO order_items (order_id, product_id, quantity, unit_price, total_price)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO order_items (order_id, product_id, quantity, unit_price, total_price, is_free_sample)
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
 
-        foreach ($_POST['items'] as $item) {
-            if ($item['product_id'] && $item['quantity'] > 0) {
-                $total_price = $item['quantity'] * $item['price'];
-                $stmt->execute([
-                    $order_id,
-                    $item['product_id'],
-                    $item['quantity'],
-                    $item['price'],
-                    $total_price
-                ]);
+        foreach ($orderItems as $item) {
+            $stmt->execute([
+                $order_id,
+                $item['product_id'],
+                $item['quantity'],
+                $item['unit_price'],
+                $item['total_price'],
+                $item['is_free_sample']
+            ]);
 
-                // Update inventory (if final product)
-                // This would need to be enhanced based on your inventory logic
-                $product_type = $pdo->query("SELECT type FROM products WHERE id = " . $item['product_id'])->fetchColumn();
-                if ($product_type == 'final') {
-                    $pdo->exec(
-                        "
-                        UPDATE inventory_products 
-                        SET quantity = quantity - " . $item['quantity'] . " 
-                        WHERE product_id = " . $item['product_id'] . " 
-                        AND inventory_id = 1" // Assuming main inventory is ID 1
-                    );
-                }
+            // Update inventory (if final product)
+            // This would need to be enhanced based on your inventory logic
+            $product_type = $pdo->query("SELECT type FROM products WHERE id = " . $item['product_id'])->fetchColumn();
+            if ($product_type == 'final') {
+                $pdo->exec(
+                    "
+                    UPDATE inventory_products 
+                    SET quantity = quantity - " . $item['quantity'] . " 
+                    WHERE product_id = " . $item['product_id'] . " 
+                    AND inventory_id = 1" // Assuming main inventory is ID 1
+                );
             }
         }
 
@@ -81,7 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $_SESSION['success'] = "Order created successfully!";
         header("Location: order_details.php?id=" . $order_id);
         exit();
-    } catch (PDOException $e) {
+    } catch (Exception $e) {
         $pdo->rollBack();
         $_SESSION['error'] = "Error creating order: " . $e->getMessage();
     }
@@ -138,7 +203,7 @@ $products = $pdo->query("
                 </div>
 
                 <div class="row">
-                    <div class="col-md-6">
+                    <div class="col-md-4">
                         <div class="mb-3">
                             <label for="contact_id" class="form-label">Contact Person</label>
                             <select class="form-select" id="contact_id" name="contact_id" required disabled>
@@ -146,7 +211,14 @@ $products = $pdo->query("
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-4">
+                        <div class="mb-3">
+                            <label class="form-label">Factory</label>
+                            <input type="text" class="form-control" id="factory_display" value="Select customer" readonly>
+                            <input type="hidden" name="factory_id" id="factory_id">
+                        </div>
+                    </div>
+                    <div class="col-md-4">
                         <div class="mb-3">
                             <label for="notes" class="form-label">Notes</label>
                             <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
@@ -169,20 +241,89 @@ $products = $pdo->query("
                             <th>Quantity</th>
                             <th>Unit Price</th>
                             <th>Total</th>
+                            <th>Free Sample?</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         <!-- Items will be added dynamically -->
                     </tbody>
-                    <tfoot>
-                        <tr>
-                            <td colspan="3" class="text-end"><strong>Total:</strong></td>
-                            <td><span id="orderTotal">0.00</span></td>
-                            <td></td>
-                        </tr>
-                    </tfoot>
                 </table>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">Discounts &amp; Shipping</div>
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label for="discount_percentage" class="form-label">Discount %</label>
+                        <input type="number" class="form-control" id="discount_percentage" name="discount_percentage"
+                            value="0" step="0.01" min="0" max="100">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="discount_basis" class="form-label">Discount Type</label>
+                        <select class="form-select" id="discount_basis" name="discount_basis">
+                            <option value="none">No Discount</option>
+                            <option value="product_quantity">Product Count</option>
+                            <option value="cash">Cash Discount</option>
+                            <option value="free_sample">Free Samples</option>
+                            <option value="mixed">Mixed</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="discount_cash_amount" class="form-label">Discount (Cash)</label>
+                        <input type="number" class="form-control" id="discount_cash_amount" name="discount_cash_amount"
+                            value="0" step="0.01" min="0">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="discount_product_count" class="form-label">Discounted Products</label>
+                        <input type="number" class="form-control" id="discount_product_count" name="discount_product_count"
+                            value="0" min="0" step="1">
+                    </div>
+                    <div class="col-md-3">
+                        <label for="shipping_cost_type" class="form-label">Shipping Cost</label>
+                        <select class="form-select" id="shipping_cost_type" name="shipping_cost_type">
+                            <option value="none">No Shipping (لا يوجد)</option>
+                            <option value="manual">Manual (يدوي)</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label for="shipping_cost" class="form-label">Shipping Amount</label>
+                        <input type="number" class="form-control" id="shipping_cost" name="shipping_cost"
+                            value="0" step="0.01" min="0" disabled>
+                        <small class="text-muted">Enabled only when shipping is manual.</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-header">Financial Summary</div>
+            <div class="card-body">
+                <div class="row text-center text-md-start">
+                    <div class="col-md-3 mb-3">
+                        <small class="text-muted d-block">Items Subtotal</small>
+                        <div class="fs-5 fw-semibold" id="itemsSubtotal">0.00</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <small class="text-muted d-block">Discount Amount</small>
+                        <div class="fs-5 text-danger" id="calculatedDiscount">0.00</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <small class="text-muted d-block">Shipping Cost</small>
+                        <div class="fs-5" id="calculatedShipping">0.00</div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <small class="text-muted d-block">Free Samples</small>
+                        <div class="fs-5" id="freeSampleCounter">0</div>
+                    </div>
+                </div>
+                <hr>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Order Total</small>
+                    <div class="fs-3 fw-bold text-primary" id="orderTotal">0.00</div>
+                </div>
             </div>
         </div>
 
@@ -258,6 +399,8 @@ $products = $pdo->query("
             if (!customerId) {
                 $('#contact_id').prop('disabled', true)
                     .html('<option value="">Select Customer First</option>');
+                $('#factory_id').val('');
+                $('#factory_display').val('Select customer');
                 return;
             }
 
@@ -268,22 +411,36 @@ $products = $pdo->query("
                     customer_id: customerId
                 })
                 .done(function(resp) {
-                    if (!resp || resp.success !== true || !Array.isArray(resp.contacts)) {
+                    if (!resp || resp.success !== true) {
                         console.error('Unexpected response:', resp);
                         $('#contact_id').html('<option value="">No contacts found</option>');
+                        $('#factory_id').val('');
+                        $('#factory_display').val('Not assigned');
                         return;
                     }
 
+                    const factoryName = resp.customer && resp.customer.factory_name
+                        ? resp.customer.factory_name
+                        : 'Not assigned';
+                    $('#factory_display').val(factoryName);
+                    $('#factory_id').val(resp.customer ? resp.customer.factory_id : '');
+
                     let options = '<option value="">Select Contact</option>';
-                    resp.contacts.forEach(c => {
-                        const selected = c.is_primary ? 'selected' : '';
-                        const phone = c.phone ? ` (${c.phone})` : '';
-                        options += `<option value="${c.id}" ${selected}>${c.name}${phone}</option>`;
-                    });
-                    $('#contact_id').html(options);
+                    if (Array.isArray(resp.contacts) && resp.contacts.length) {
+                        resp.contacts.forEach(c => {
+                            const selected = c.is_primary ? 'selected' : '';
+                            const phone = c.phone ? ` (${c.phone})` : '';
+                            options += `<option value="${c.id}" ${selected}>${c.name}${phone}</option>`;
+                        });
+                        $('#contact_id').html(options);
+                    } else {
+                        $('#contact_id').html('<option value="">No contacts found</option>');
+                    }
                 })
                 .fail(function(xhr) {
                     console.error('Contacts load failed:', xhr.status, xhr.responseText);
+                    $('#factory_id').val('');
+                    $('#factory_display').val('Failed to load');
                     $('#contact_id').html('<option value="">Failed to load contacts</option>');
                 });
         });
@@ -324,7 +481,13 @@ $products = $pdo->query("
                         <input type="number" class="form-control form-control-sm item-price" 
                                name="items[${productId}][price]" value="${productPrice}" step="0.01" min="0">
                     </td>
-                    <td class="item-total">${productPrice.toFixed(2)}</td>
+                    <td class="item-total" data-value="${productPrice.toFixed(2)}">${productPrice.toFixed(2)}</td>
+                    <td>
+                        <input type="hidden" class="free-sample-flag" name="items[${productId}][is_free_sample]" value="0">
+                        <div class="form-check">
+                            <input type="checkbox" class="form-check-input item-free-sample">
+                        </div>
+                    </td>
                     <td>
                         <button type="button" class="btn btn-sm btn-danger remove-item">
                             <i class="fas fa-trash"></i>
@@ -335,36 +498,111 @@ $products = $pdo->query("
                 $('#itemsTable tbody').append(newRow);
             }
 
-            updateOrderTotal();
+            const $newRow = $('#' + rowId);
+            updateRowTotal($newRow);
+            updateSummary();
             $('#productModal').modal('hide');
         });
 
         // Remove item
         $(document).on('click', '.remove-item', function() {
             $(this).closest('tr').remove();
-            updateOrderTotal();
+            updateFreeSampleCounter();
+            updateSummary();
         });
 
         // Update row total when quantity or price changes
         $(document).on('change', '.item-qty, .item-price', function() {
             updateRowTotal($(this).closest('tr'));
-            updateOrderTotal();
+            updateSummary();
         });
 
         function updateRowTotal(row) {
             const qty = parseFloat(row.find('.item-qty').val()) || 0;
             const price = parseFloat(row.find('.item-price').val()) || 0;
-            const total = (qty * price).toFixed(2);
-            row.find('.item-total').text(total);
+            const isFree = row.find('.free-sample-flag').val() === '1';
+            const total = isFree ? 0 : qty * price;
+            const totalCell = row.find('.item-total');
+            totalCell.data('value', total);
+            totalCell.text(isFree ? `${total.toFixed(2)} (Free)` : total.toFixed(2));
+            updateFreeSampleCounter();
         }
 
-        function updateOrderTotal() {
+        $(document).on('change', '.item-free-sample', function() {
+            const row = $(this).closest('tr');
+            row.find('.free-sample-flag').val(this.checked ? '1' : '0');
+            updateRowTotal(row);
+            updateSummary();
+        });
+
+        function updateFreeSampleCounter() {
+            let counter = 0;
+            $('#itemsTable tbody tr').each(function() {
+                if ($(this).find('.free-sample-flag').val() === '1') {
+                    counter += parseFloat($(this).find('.item-qty').val()) || 0;
+                }
+            });
+            $('#freeSampleCounter').text(counter);
+        }
+
+        function getItemsSubtotal() {
             let total = 0;
             $('.item-total').each(function() {
-                total += parseFloat($(this).text()) || 0;
+                total += parseFloat($(this).data('value')) || 0;
             });
+            return total;
+        }
+
+        function calculateDiscount(subtotal) {
+            const percentage = parseFloat($('#discount_percentage').val()) || 0;
+            const cash = parseFloat($('#discount_cash_amount').val()) || 0;
+            let discount = subtotal * (Math.min(percentage, 100) / 100);
+            discount += Math.max(0, cash);
+            if (discount > subtotal) {
+                discount = subtotal;
+            }
+            return discount;
+        }
+
+        function getShippingCost() {
+            if ($('#shipping_cost_type').val() === 'manual') {
+                return Math.max(0, parseFloat($('#shipping_cost').val()) || 0);
+            }
+            return 0;
+        }
+
+        function updateSummary() {
+            const subtotal = getItemsSubtotal();
+            const discount = calculateDiscount(subtotal);
+            const shipping = getShippingCost();
+            const total = Math.max(0, subtotal - discount) + shipping;
+
+            $('#itemsSubtotal').text(subtotal.toFixed(2));
+            $('#calculatedDiscount').text(discount.toFixed(2));
+            $('#calculatedShipping').text(shipping.toFixed(2));
             $('#orderTotal').text(total.toFixed(2));
         }
+
+        $('#discount_percentage, #discount_cash_amount').on('input', updateSummary);
+        $('#shipping_cost').on('input', updateSummary);
+        $('#shipping_cost_type').on('change', function() {
+            const manual = $(this).val() === 'manual';
+            $('#shipping_cost').prop('disabled', !manual);
+            if (!manual) {
+                $('#shipping_cost').val(0);
+            }
+            updateSummary();
+        });
+
+        $('#discount_product_count').on('input', function() {
+            if (parseInt($(this).val(), 10) < 0) {
+                $(this).val(0);
+            }
+        });
+
+        // Initialize summary on first load
+        updateFreeSampleCounter();
+        updateSummary();
     });
 </script>
 

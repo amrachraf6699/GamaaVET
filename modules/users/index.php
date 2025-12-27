@@ -48,9 +48,14 @@ include __DIR__ . '/../../includes/header.php';
             <div class="card mb-4">
                 <div class="card-header pb-0 d-flex justify-content-between align-items-center">
                     <h6>Users List</h6>
-                    <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">
-                        <i class="fas fa-plus"></i> Add New User
-                    </button>
+                    <div class="d-flex gap-2">
+                        <a href="transfer_data.php" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-random"></i> Transfer Data
+                        </a>
+                        <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                            <i class="fas fa-plus"></i> Add New User
+                        </button>
+                    </div>
                 </div>
                 <div class="card-body px-0 pt-0 pb-2">
                     <div class="table-responsive p-0">

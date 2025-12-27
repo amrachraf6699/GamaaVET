@@ -16,11 +16,13 @@ $order_id = $_GET['id'] ?? 0;
 // Fetch order details
 $stmt = $pdo->prepare("
     SELECT o.*, c.name AS customer_name, cc.name AS contact_name, 
-           cc.phone AS contact_phone, u.name AS created_by_name
+           cc.phone AS contact_phone, u.name AS created_by_name,
+           f.name AS factory_name
     FROM orders o
     JOIN customers c ON o.customer_id = c.id
     JOIN customer_contacts cc ON o.contact_id = cc.id
     JOIN users u ON o.created_by = u.id
+    LEFT JOIN factories f ON o.factory_id = f.id
     WHERE o.id = ?
 ");
 $stmt->execute([$order_id]);
@@ -53,10 +55,102 @@ $stmt = $pdo->prepare("
 $stmt->execute([$order_id]);
 $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
+$returns = [];
+$returnsByItem = [];
+
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_return'])) {
+    try {
+        $order_item_id = (int)($_POST['order_item_id'] ?? 0);
+        $returned_quantity = max(0, (int)($_POST['returned_quantity'] ?? 0));
+        $return_reason = trim($_POST['return_reason'] ?? '');
+
+        if ($order_item_id <= 0 || $returned_quantity <= 0) {
+            throw new Exception('Please provide a valid product and quantity to register a return.');
+        }
+
+        $itemStmt = $pdo->prepare("
+            SELECT oi.*, p.name AS product_name
+            FROM order_items oi
+            JOIN products p ON oi.product_id = p.id
+            WHERE oi.id = ? AND oi.order_id = ?
+        ");
+        $itemStmt->execute([$order_item_id, $order_id]);
+        $returnItem = $itemStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$returnItem) {
+            throw new Exception('Unable to locate the selected product for this order.');
+        }
+
+        $returnedStmt = $pdo->prepare("SELECT COALESCE(SUM(returned_quantity), 0) FROM order_returns WHERE order_item_id = ?");
+        $returnedStmt->execute([$order_item_id]);
+        $alreadyReturned = (int)$returnedStmt->fetchColumn();
+        $availableQuantity = (int)$returnItem['quantity'] - $alreadyReturned;
+
+        if ($availableQuantity <= 0) {
+            throw new Exception('All available quantities for this product have already been returned.');
+        }
+
+        if ($returned_quantity > $availableQuantity) {
+            throw new Exception('Return quantity cannot exceed what remains in the order.');
+        }
+
+        $insertReturn = $pdo->prepare("
+            INSERT INTO order_returns (order_id, order_item_id, product_id, returned_quantity, reason, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ");
+        $insertReturn->execute([
+            $order_id,
+            $order_item_id,
+            $returnItem['product_id'],
+            $returned_quantity,
+            $return_reason,
+            $_SESSION['user_id']
+        ]);
+
+        $_SESSION['success'] = 'Return registered successfully.';
+        header("Location: order_details.php?id=" . $order_id);
+        exit();
+    } catch (Exception $e) {
+        $_SESSION['error'] = $e->getMessage();
+        header("Location: order_details.php?id=" . $order_id);
+        exit();
+    }
+}
+
+$stmt = $pdo->prepare("
+    SELECT r.*, p.name AS product_name, u.name AS created_by_name
+    FROM order_returns r
+    JOIN products p ON r.product_id = p.id
+    JOIN users u ON r.created_by = u.id
+    WHERE r.order_id = ?
+    ORDER BY r.created_at DESC
+");
+$stmt->execute([$order_id]);
+$returns = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+foreach ($returns as $returnItem) {
+    $returnsByItem[$returnItem['order_item_id']] = ($returnsByItem[$returnItem['order_item_id']] ?? 0) + $returnItem['returned_quantity'];
+}
+
+$itemsSubtotal = array_reduce($items, function ($carry, $item) {
+    return $carry + (float)$item['total_price'];
+}, 0);
+$shippingAmount = $order['shipping_cost_type'] === 'manual' ? (float)$order['shipping_cost'] : 0;
+$discountAmount = (float)$order['discount_amount'];
+$balance = $order['total_amount'] - $order['paid_amount'];
+$discountBasisMap = [
+    'none' => 'No Discount (لا يوجد)',
+    'product_quantity' => 'Product Count (عدد منتجات)',
+    'cash' => 'Cash Discount (خصم فلوس)',
+    'free_sample' => 'Free Samples (عينات مجانية)',
+    'mixed' => 'Mixed (مزيج)'
+];
+$discountBasisLabel = $discountBasisMap[$order['discount_basis']] ?? ucwords(str_replace('-', ' ', $order['discount_basis']));
+
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
     $new_status = $_POST['status'];
-    
+
     try {
         $stmt = $pdo->prepare("UPDATE orders SET status = ? WHERE id = ?");
         $stmt->execute([$new_status, $order_id]);
@@ -80,7 +174,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
             <h4>Order #<?= htmlspecialchars($order['internal_id']) ?></h4>
             <div>
                 <a href="order_list.php" class="btn btn-sm btn-secondary">Back to List</a>
-                <a href="generate_invoice.php?id=<?= $order_id ?>" class="btn btn-sm btn-primary" target="_blank">Print Invoice</a>
+                <a href="generate_invoice.php?id=<?= $order_id ?>" class="btn btn-sm btn-primary ms-2" target="_blank">Print Invoice</a>
+                <a href="generate_invoice.php?id=<?= $order_id ?>&view=statement" class="btn btn-sm btn-outline-primary ms-2" target="_blank">بيان</a>
             </div>
         </div>
         <div class="card-body">
@@ -90,11 +185,18 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                     <p><strong>Customer:</strong> <?= htmlspecialchars($order['customer_name']) ?></p>
                     <p><strong>Contact Person:</strong> <?= htmlspecialchars($order['contact_name']) ?></p>
                     <p><strong>Contact Phone:</strong> <?= htmlspecialchars($order['contact_phone']) ?></p>
+                    <p><strong>Factory:</strong> <?= $order['factory_name'] ? htmlspecialchars($order['factory_name']) : 'Not assigned' ?></p>
                 </div>
                 <div class="col-md-6">
                     <h5>Order Information</h5>
                     <p><strong>Order Date:</strong> <?= date('M d, Y', strtotime($order['order_date'])) ?></p>
                     <p><strong>Created By:</strong> <?= htmlspecialchars($order['created_by_name']) ?></p>
+                    <p><strong>Discount %:</strong> <?= number_format($order['discount_percentage'], 2) ?>%</p>
+                    <p><strong>Discount Type:</strong> <?= htmlspecialchars($discountBasisLabel) ?></p>
+                    <p><strong>Discount Amount:</strong> <?= number_format($discountAmount, 2) ?></p>
+                    <p><strong>Discounted Products:</strong> <?= (int)$order['discount_product_count'] ?></p>
+                    <p><strong>Free Samples:</strong> <?= (int)$order['free_sample_count'] ?></p>
+                    <p><strong>Shipping:</strong> <?= $order['shipping_cost_type'] === 'manual' ? number_format($shippingAmount, 2) . ' (Manual)' : 'No Shipping' ?></p>
                     <p>
                         <strong>Status:</strong> 
                         <?php 
@@ -134,7 +236,12 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                             <?php foreach ($items as $item) : ?>
                                 <tr>
                                     <td><?= htmlspecialchars($item['sku']) ?></td>
-                                    <td><?= htmlspecialchars($item['product_name']) ?></td>
+                                    <td>
+                                        <?= htmlspecialchars($item['product_name']) ?>
+                                        <?php if (!empty($item['is_free_sample'])) : ?>
+                                            <span class="badge bg-info ms-2">Free Sample</span>
+                                        <?php endif; ?>
+                                    </td>
                                     <td><?= $item['quantity'] ?></td>
                                     <td><?= number_format($item['unit_price'], 2) ?></td>
                                     <td><?= number_format($item['total_price'], 2) ?></td>
@@ -143,7 +250,23 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                         </tbody>
                         <tfoot>
                             <tr>
-                                <td colspan="4" class="text-end"><strong>Subtotal:</strong></td>
+                                <td colspan="4" class="text-end"><strong>Items Subtotal:</strong></td>
+                                <td><?= number_format($itemsSubtotal, 2) ?></td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-end"><strong>Discount:</strong></td>
+                                <td class="text-danger">-<?= number_format($discountAmount, 2) ?></td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-end"><strong>Shipping:</strong></td>
+                                <td>
+                                    <?= $order['shipping_cost_type'] === 'manual'
+                                        ? number_format($shippingAmount, 2) . ' (Manual)'
+                                        : '0.00 (No Shipping)' ?>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td colspan="4" class="text-end"><strong>Total:</strong></td>
                                 <td><?= number_format($order['total_amount'], 2) ?></td>
                             </tr>
                             <tr>
@@ -152,12 +275,86 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Balance:</strong></td>
-                                <td class="<?= ($order['total_amount'] - $order['paid_amount']) > 0 ? 'text-danger' : 'text-success' ?>">
-                                    <?= number_format($order['total_amount'] - $order['paid_amount'], 2) ?>
+                                <td class="<?= $balance > 0 ? 'text-danger' : 'text-success' ?>">
+                                    <?= number_format($balance, 2) ?>
                                 </td>
                             </tr>
                         </tfoot>
                     </table>
+                </div>
+            </div>
+
+            <div class="row mb-4">
+                <div class="col-md-12">
+                    <h5>Returns</h5>
+                    <?php if (empty($returns)) : ?>
+                        <p class="text-muted">No returns recorded for this order.</p>
+                    <?php else : ?>
+                        <table class="table table-sm table-bordered">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th>Quantity</th>
+                                    <th>Reason</th>
+                                    <th>Recorded By</th>
+                                    <th>Date</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($returns as $return) : ?>
+                                    <tr>
+                                        <td><?= htmlspecialchars($return['product_name']) ?></td>
+                                        <td><?= (int)$return['returned_quantity'] ?></td>
+                                        <td><?= htmlspecialchars($return['reason'] ?? '') ?></td>
+                                        <td><?= htmlspecialchars($return['created_by_name']) ?></td>
+                                        <td><?= date('M d, Y H:i', strtotime($return['created_at'])) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php endif; ?>
+
+                    <?php 
+                    $returnableItems = array_filter($items, function ($item) use ($returnsByItem) {
+                        $already = $returnsByItem[$item['id']] ?? 0;
+                        return $item['quantity'] > $already;
+                    });
+                    ?>
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'salesman', 'accountant'])) : ?>
+                        <hr>
+                        <h6>Add Return</h6>
+                        <?php if (empty($returnableItems)) : ?>
+                            <p class="text-muted">All line items have been fully returned.</p>
+                        <?php else : ?>
+                            <form method="post" class="row g-3 align-items-end">
+                                <input type="hidden" name="add_return" value="1">
+                                <div class="col-md-4">
+                                    <label for="order_item_id" class="form-label">Product</label>
+                                    <select class="form-select" id="order_item_id" name="order_item_id" required>
+                                        <?php foreach ($returnableItems as $item) :
+                                            $already = $returnsByItem[$item['id']] ?? 0;
+                                            $available = $item['quantity'] - $already;
+                                        ?>
+                                            <option value="<?= $item['id'] ?>">
+                                                <?= htmlspecialchars($item['product_name']) ?> (Available: <?= $available ?>)
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-2">
+                                    <label for="returned_quantity" class="form-label">Qty</label>
+                                    <input type="number" class="form-control" id="returned_quantity" name="returned_quantity" min="1" required>
+                                </div>
+                                <div class="col-md-4">
+                                    <label for="return_reason" class="form-label">Reason</label>
+                                    <input type="text" class="form-control" id="return_reason" name="return_reason" placeholder="Optional">
+                                </div>
+                                <div class="col-md-2">
+                                    <button type="submit" class="btn btn-danger w-100">Add Return</button>
+                                </div>
+                            </form>
+                        <?php endif; ?>
+                    <?php endif; ?>
                 </div>
             </div>
             

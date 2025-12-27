@@ -28,6 +28,45 @@ if ($_SERVER['REQUEST_METHOD']==='POST') {
 }
 
 $result = $conn->query("SELECT f.*, u.name as user FROM finance_transfers f JOIN users u ON f.created_by=u.id ORDER BY f.created_at DESC");
+
+$bankAccounts = [];
+$bankRes = $conn->query("SELECT id, bank_name, account_number FROM bank_accounts ORDER BY bank_name");
+if ($bankRes) {
+    while ($row = $bankRes->fetch_assoc()) {
+        $bankAccounts[] = [
+            'id' => $row['id'],
+            'label' => $row['bank_name'] . ' (#' . $row['account_number'] . ')'
+        ];
+    }
+}
+
+$safeAccounts = [];
+$safeRes = $conn->query("SELECT id, name FROM safes ORDER BY name");
+if ($safeRes) {
+    while ($row = $safeRes->fetch_assoc()) {
+        $safeAccounts[] = [
+            'id' => $row['id'],
+            'label' => $row['name']
+        ];
+    }
+}
+
+$personalAccounts = [];
+$personalRes = $conn->query("SELECT id, name FROM users WHERE role != 'admin' ORDER BY name");
+if ($personalRes) {
+    while ($row = $personalRes->fetch_assoc()) {
+        $personalAccounts[] = [
+            'id' => $row['id'],
+            'label' => $row['name']
+        ];
+    }
+}
+
+$accountOptions = [
+    'bank' => $bankAccounts,
+    'safe' => $safeAccounts,
+    'personal' => $personalAccounts
+];
 ?>
 
 <div class="d-flex justify-content-between mb-4">
@@ -69,8 +108,8 @@ $result = $conn->query("SELECT f.*, u.name as user FROM finance_transfers f JOIN
               <option value="personal">Personal</option>
             </select>
           </div>
-          <div class="mb-3"><label>From ID</label>
-            <input type="number" class="form-control" name="from_id" required>
+          <div class="mb-3"><label>From Account</label>
+            <select class="form-select" name="from_id" id="from_account_id" required></select>
           </div>
           <div class="mb-3"><label>To Type</label>
             <select name="to_type" class="form-select" required>
@@ -79,8 +118,8 @@ $result = $conn->query("SELECT f.*, u.name as user FROM finance_transfers f JOIN
               <option value="personal">Personal</option>
             </select>
           </div>
-          <div class="mb-3"><label>To ID</label>
-            <input type="number" class="form-control" name="to_id" required>
+          <div class="mb-3"><label>To Account</label>
+            <select class="form-select" name="to_id" id="to_account_id" required></select>
           </div>
           <div class="mb-3"><label>Amount</label>
             <input type="number" step="0.01" class="form-control" name="amount" required>
@@ -97,5 +136,37 @@ $result = $conn->query("SELECT f.*, u.name as user FROM finance_transfers f JOIN
     </div>
   </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const accountOptions = <?= json_encode($accountOptions, JSON_UNESCAPED_UNICODE); ?>;
+
+    function renderAccounts(prefix) {
+        const typeSelect = document.querySelector(`select[name="${prefix}_type"]`);
+        const accountSelect = document.getElementById(`${prefix}_account_id`);
+        const type = typeSelect.value;
+        const list = accountOptions[type] || [];
+
+        if (!list.length) {
+            accountSelect.innerHTML = '<option value="">No accounts found</option>';
+            accountSelect.disabled = true;
+            return;
+        }
+
+        let options = '';
+        list.forEach(item => {
+            options += `<option value="${item.id}">${item.label}</option>`;
+        });
+        accountSelect.innerHTML = options;
+        accountSelect.disabled = false;
+    }
+
+    ['from', 'to'].forEach(prefix => {
+        const typeSelect = document.querySelector(`select[name="${prefix}_type"]`);
+        typeSelect.addEventListener('change', () => renderAccounts(prefix));
+        renderAccounts(prefix);
+    });
+});
+</script>
 
 <?php require_once '../../includes/footer.php'; ?>

@@ -11,8 +11,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Customer basic info
     $name = sanitize($_POST['name']);
     $type = sanitize($_POST['type']);
+    $factory_id = !empty($_POST['factory_id']) ? intval($_POST['factory_id']) : NULL;
     $email = !empty($_POST['email']) ? sanitize($_POST['email']) : NULL;
     $phone = sanitize($_POST['phone']);
+    $whatsapp_phone = !empty($_POST['whatsapp_phone']) ? sanitize($_POST['whatsapp_phone']) : NULL;
     $tax_number = !empty($_POST['tax_number']) ? sanitize($_POST['tax_number']) : NULL;
     $wallet_balance = !empty($_POST['wallet_balance']) ? sanitize($_POST['wallet_balance']) : 0;
     
@@ -37,10 +39,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Insert customer
         $customer_sql = "INSERT INTO customers 
-                         (name, type, email, phone, tax_number, wallet_balance) 
-                         VALUES (?, ?, ?, ?, ?, ?)";
+                         (name, type, factory_id, email, phone, whatsapp_phone, tax_number, wallet_balance) 
+                         VALUES (?, ?, ?, ?, ?, ?, ?, ?)";
         $customer_stmt = $conn->prepare($customer_sql);
-        $customer_stmt->bind_param("sisssd", $name, $type, $email, $phone, $tax_number, $wallet_balance);
+        $customer_stmt->bind_param(
+            "siissssd",
+            $name,
+            $type,
+            $factory_id,
+            $email,
+            $phone,
+            $whatsapp_phone,
+            $tax_number,
+            $wallet_balance
+        );
         $customer_stmt->execute();
         $customer_id = $customer_stmt->insert_id;
         $customer_stmt->close();

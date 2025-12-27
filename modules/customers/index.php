@@ -81,19 +81,33 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     redirect('index.php');
 }
 
-// Fetch all customers with their types
-$sql = "SELECT c.*, ct.name as type_name 
+// Fetch all customers with their types and factories
+$sql = "SELECT c.*, ct.name AS type_name, f.name AS factory_name 
         FROM customers c 
         JOIN customer_types ct ON c.type = ct.id 
+        LEFT JOIN factories f ON c.factory_id = f.id
         ORDER BY c.name";
 $result = $conn->query($sql);
+
+$factories_data = [];
+$factories_result = $conn->query("SELECT id, name FROM factories ORDER BY name");
+if ($factories_result) {
+    while ($factory = $factories_result->fetch_assoc()) {
+        $factories_data[] = $factory;
+    }
+}
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Customers</h2>
-    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
-        <i class="fas fa-plus"></i> Add Customer
-    </button>
+    <div class="d-flex gap-2">
+        <a href="factories.php" class="btn btn-outline-secondary">
+            <i class="fas fa-industry"></i> Manage Factories
+        </a>
+        <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
+            <i class="fas fa-plus"></i> Add Customer
+        </button>
+    </div>
 </div>
 
 <div class="card">
@@ -105,6 +119,7 @@ $result = $conn->query($sql);
                         <th>ID</th>
                         <th>Name</th>
                         <th>Type</th>
+                        <th>Factory</th>
                         <th>Email</th>
                         <th>Phone</th>
                         <th>Wallet Balance</th>
@@ -122,6 +137,7 @@ $result = $conn->query($sql);
                                         <?php echo ucfirst($row['type_name']); ?>
                                     </span>
                                 </td>
+                                <td><?php echo !empty($row['factory_name']) ? htmlspecialchars($row['factory_name']) : '<span class="text-muted">N/A</span>'; ?></td>
                                 <td><?php echo htmlspecialchars($row['email']); ?></td>
                                 <td><?php echo htmlspecialchars($row['phone']); ?></td>
                                 <td><?php echo number_format($row['wallet_balance'], 2); ?></td>
@@ -135,6 +151,15 @@ $result = $conn->query($sql);
                                             <li><a class="dropdown-item edit-customer" href="#" data-id="<?php echo $row['id']; ?>"><i class="fas fa-edit"></i> Edit</a></li>
                                             <li><a class="dropdown-item" href="contacts.php?id=<?php echo $row['id']; ?>"><i class="fas fa-address-book"></i> Contacts</a></li>
                                             <li><a class="dropdown-item" href="wallet.php?id=<?php echo $row['id']; ?>"><i class="fas fa-wallet"></i> Wallet</a></li>
+                                            <li>
+                                                <button type="button"
+                                                        class="dropdown-item send-portal-link"
+                                                        data-id="<?php echo $row['id']; ?>"
+                                                        data-phone="<?php echo htmlspecialchars(!empty($row['whatsapp_phone']) ? $row['whatsapp_phone'] : $row['phone']); ?>"
+                                                        data-name="<?php echo htmlspecialchars($row['name']); ?>">
+                                                    <i class="fab fa-whatsapp"></i> WhatsApp Portal Link
+                                                </button>
+                                            </li>
                                             <li><hr class="dropdown-divider"></li>
                                             <li><a class="dropdown-item text-danger" href="index.php?delete=<?php echo $row['id']; ?>" onclick="return confirm('Are you sure you want to delete this customer?')"><i class="fas fa-trash"></i> Delete</a></li>
                                         </ul>
@@ -144,7 +169,7 @@ $result = $conn->query($sql);
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="7" class="text-center">No customers found</td>
+                            <td colspan="8" class="text-center">No customers found</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>
@@ -192,6 +217,22 @@ $result = $conn->query($sql);
                                         }
                                         ?>
                                     </select>
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="factory_id" class="form-label">Factory</label>
+                                    <select class="form-select" id="factory_id" name="factory_id">
+                                        <option value="">-- Not Assigned --</option>
+                                        <?php foreach ($factories_data as $factory): ?>
+                                            <option value="<?= $factory['id']; ?>"><?= htmlspecialchars($factory['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                    <small class="text-muted">Controls which factory appears on invoices.</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="whatsapp_phone" class="form-label">WhatsApp Number</label>
+                                    <input type="text" class="form-control" id="whatsapp_phone" name="whatsapp_phone" placeholder="+201234567890">
                                 </div>
                             </div>
                             <div class="row">
@@ -319,6 +360,21 @@ $result = $conn->query($sql);
                             </div>
                             <div class="row">
                                 <div class="col-md-6 mb-3">
+                                    <label for="edit_factory_id" class="form-label">Factory</label>
+                                    <select class="form-select" id="edit_factory_id" name="factory_id">
+                                        <option value="">-- Not Assigned --</option>
+                                        <?php foreach ($factories_data as $factory): ?>
+                                            <option value="<?= $factory['id']; ?>"><?= htmlspecialchars($factory['name']); ?></option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="edit_whatsapp_phone" class="form-label">WhatsApp Number</label>
+                                    <input type="text" class="form-control" id="edit_whatsapp_phone" name="whatsapp_phone">
+                                </div>
+                            </div>
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
                                     <label for="edit_email" class="form-label">Email</label>
                                     <input type="email" class="form-control" id="edit_email" name="email">
                                 </div>
@@ -356,7 +412,7 @@ $(document).ready(function() {
     $('#customersTable').DataTable({
         responsive: true,
         columnDefs: [
-            { orderable: false, targets: [6] } // Disable sorting on actions column
+            { orderable: false, targets: [7] } // Disable sorting on actions column
         ]
     });
     
@@ -377,6 +433,8 @@ $(document).ready(function() {
                     $('#edit_type').val(response.customer.type);
                     $('#edit_email').val(response.customer.email);
                     $('#edit_phone').val(response.customer.phone);
+                    $('#edit_factory_id').val(response.customer.factory_id);
+                    $('#edit_whatsapp_phone').val(response.customer.whatsapp_phone);
                     $('#edit_tax_number').val(response.customer.tax_number);
                     $('#edit_wallet_balance').val(response.customer.wallet_balance);
                     
@@ -384,6 +442,34 @@ $(document).ready(function() {
                 } else {
                     alert('Error loading customer data: ' + response.message);
                 }
+            }
+        });
+    });
+
+    $(document).on('click', '.send-portal-link', function() {
+        var customerId = $(this).data('id');
+        var phone = ($(this).data('phone') || '').toString().trim();
+
+        if (!phone.length) {
+            alert('لا يوجد رقم واتساب لهذا العميل.');
+            return;
+        }
+
+        $.ajax({
+            url: '../../ajax/generate_portal_link.php',
+            method: 'POST',
+            data: { customer_id: customerId },
+            dataType: 'json',
+            success: function(resp) {
+                if (resp.success) {
+                    alert('تم توليد رابط البوابة للعميل.\nسوف يتم فتح واتساب الآن لإرسال الرابط.');
+                    window.open(resp.whatsapp_url, '_blank');
+                } else {
+                    alert(resp.message || 'تعذر إنشاء الرابط.');
+                }
+            },
+            error: function() {
+                alert('حدث خطأ أثناء إنشاء الرابط.');
             }
         });
     });

@@ -15,7 +15,7 @@ $quotation_id = $_GET['id'] ?? 0;
 
 // Fetch quotation details
 $stmt = $pdo->prepare("
-    SELECT q.*, c.name AS customer_name
+    SELECT q.*, c.name AS customer_name, c.factory_id
     FROM quotations q
     JOIN customers c ON q.customer_id = c.id
     WHERE q.id = ? AND q.status = 'accepted' AND q.order_id IS NULL
@@ -50,19 +50,29 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         // Create order
         $stmt = $pdo->prepare("
             INSERT INTO orders (
-                internal_id, customer_id, contact_id, order_date, status, 
-                total_amount, paid_amount, notes, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                internal_id, customer_id, factory_id, contact_id, order_date, status, 
+                total_amount, paid_amount, discount_percentage, discount_basis, discount_amount,
+                discount_product_count, free_sample_count, shipping_cost_type, shipping_cost,
+                notes, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
             $internal_id,
             $quotation['customer_id'],
+            $quotation['factory_id'],
             $quotation['contact_id'],
             date('Y-m-d'),
             'new',
             $quotation['total_amount'],
             0.00,
+            0,
+            'none',
+            0,
+            0,
+            0,
+            'none',
+            0,
             "Converted from quotation #" . $quotation['id'] . "\n" . $quotation['notes'],
             $_SESSION['user_id']
         ]);
@@ -71,8 +81,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         
         // Insert order items
         $stmt = $pdo->prepare("
-            INSERT INTO order_items (order_id, product_id, quantity, unit_price, total_price)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO order_items (order_id, product_id, quantity, unit_price, total_price, is_free_sample)
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
         
         foreach ($items as $item) {
@@ -81,7 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 $item['product_id'],
                 $item['quantity'],
                 $item['unit_price'],
-                $item['total_price']
+                $item['total_price'],
+                0
             ]);
             
             // Update inventory (if final product)
