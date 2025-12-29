@@ -1,6 +1,5 @@
 <?php
 require_once '../../includes/auth.php';
-require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
 // Check user role
@@ -66,6 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['add_return'])) {
 
         if ($order_item_id <= 0 || $returned_quantity <= 0) {
             throw new Exception('Please provide a valid product and quantity to register a return.');
+        }
+
+        if ($return_reason === '') {
+            throw new Exception('Please provide a reason for this refund.');
         }
 
         $itemStmt = $pdo->prepare("
@@ -162,6 +165,48 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
         $_SESSION['error'] = "Error updating order status: " . $e->getMessage();
     }
 }
+
+// Handle shipping update
+if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_shipping'])) {
+    try {
+        if (!in_array($_SESSION['user_role'], ['admin', 'salesman', 'accountant'])) {
+            throw new Exception('You are not allowed to update shipping.');
+        }
+
+        $newShippingType = $_POST['shipping_cost_type'] === 'manual' ? 'manual' : 'none';
+        $newShippingAmount = $newShippingType === 'manual' ? max(0, (float)($_POST['shipping_cost'] ?? 0)) : 0;
+
+        $currentStmt = $pdo->prepare("SELECT shipping_cost_type, shipping_cost, total_amount FROM orders WHERE id = ?");
+        $currentStmt->execute([$order_id]);
+        $currentSnapshot = $currentStmt->fetch(PDO::FETCH_ASSOC);
+
+        if (!$currentSnapshot) {
+            throw new Exception('Order snapshot missing, please refresh and try again.');
+        }
+
+        $oldShipping = $currentSnapshot['shipping_cost_type'] === 'manual'
+            ? (float)$currentSnapshot['shipping_cost']
+            : 0;
+        $newTotal = max(0, ((float)$currentSnapshot['total_amount'] - $oldShipping) + $newShippingAmount);
+
+        $updateStmt = $pdo->prepare("UPDATE orders SET shipping_cost_type = ?, shipping_cost = ?, total_amount = ? WHERE id = ?");
+        $updateStmt->execute([$newShippingType, $newShippingAmount, $newTotal, $order_id]);
+
+        logActivity('Updated order shipping', [
+            'order_id' => $order_id,
+            'shipping_cost_type' => $newShippingType,
+            'shipping_cost' => $newShippingAmount
+        ]);
+
+        $_SESSION['success'] = 'Shipping cost updated successfully.';
+    } catch (Exception $e) {
+        $_SESSION['error'] = $e->getMessage();
+    }
+
+    header("Location: order_details.php?id=" . $order_id);
+    exit();
+}
+require_once '../../includes/header.php';
 ?>
 
 <div class="container mt-4">
@@ -197,6 +242,28 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                     <p><strong>Discounted Products:</strong> <?= (int)$order['discount_product_count'] ?></p>
                     <p><strong>Free Samples:</strong> <?= (int)$order['free_sample_count'] ?></p>
                     <p><strong>Shipping:</strong> <?= $order['shipping_cost_type'] === 'manual' ? number_format($shippingAmount, 2) . ' (Manual)' : 'No Shipping' ?></p>
+                    <?php if (in_array($_SESSION['user_role'], ['admin', 'salesman', 'accountant'])) : ?>
+                        <form method="post" class="mt-3 border-top pt-3">
+                            <div class="row g-2 align-items-end">
+                                <div class="col-sm-6">
+                                    <label for="shipping_cost_type_edit" class="form-label">Shipping Mode</label>
+                                    <select class="form-select" id="shipping_cost_type_edit" name="shipping_cost_type">
+                                        <option value="none" <?= $order['shipping_cost_type'] !== 'manual' ? 'selected' : '' ?>>No Shipping</option>
+                                        <option value="manual" <?= $order['shipping_cost_type'] === 'manual' ? 'selected' : '' ?>>Manual Amount</option>
+                                    </select>
+                                </div>
+                                <div class="col-sm-4">
+                                    <label for="shipping_cost_edit" class="form-label">Amount</label>
+                                    <input type="number" class="form-control" name="shipping_cost" id="shipping_cost_edit" min="0" step="0.01" value="<?= htmlspecialchars(number_format($shippingAmount, 2, '.', '')) ?>">
+                                </div>
+                                <div class="col-sm-2 d-grid">
+                                    <input type="hidden" name="update_shipping" value="1">
+                                    <button type="submit" class="btn btn-outline-primary mt-3 mt-sm-0">Save</button>
+                                </div>
+                            </div>
+                            <small class="text-muted">Manual amount only applies when shipping mode is manual.</small>
+                        </form>
+                    <?php endif; ?>
                     <p>
                         <strong>Status:</strong> 
                         <?php 
@@ -346,8 +413,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                                     <input type="number" class="form-control" id="returned_quantity" name="returned_quantity" min="1" required>
                                 </div>
                                 <div class="col-md-4">
-                                    <label for="return_reason" class="form-label">Reason</label>
-                                    <input type="text" class="form-control" id="return_reason" name="return_reason" placeholder="Optional">
+                                    <label for="return_reason" class="form-label">Reason <span class="text-danger">*</span></label>
+                                    <input type="text" class="form-control" id="return_reason" name="return_reason" placeholder="Explain why the refund is needed" required>
                                 </div>
                                 <div class="col-md-2">
                                     <button type="submit" class="btn btn-danger w-100">Add Return</button>
@@ -417,5 +484,26 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
         </div>
     </div>
 </div>
+
+<?php if (in_array($_SESSION['user_role'], ['admin', 'salesman', 'accountant'])) : ?>
+<script>
+    (function() {
+        const typeSelect = document.getElementById('shipping_cost_type_edit');
+        const amountInput = document.getElementById('shipping_cost_edit');
+        if (!typeSelect || !amountInput) return;
+
+        const toggleShippingAmount = () => {
+            const manual = typeSelect.value === 'manual';
+            amountInput.disabled = !manual;
+            if (!manual) {
+                amountInput.value = '0.00';
+            }
+        };
+
+        toggleShippingAmount();
+        typeSelect.addEventListener('change', toggleShippingAmount);
+    })();
+</script>
+<?php endif; ?>
 
 <?php require_once '../../includes/footer.php'; ?>

@@ -14,6 +14,7 @@ $transferSummary = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $fromUser = (int)($_POST['from_user'] ?? 0);
     $toUser = (int)($_POST['to_user'] ?? 0);
+    $deleteSourceUser = !empty($_POST['delete_source_user']);
 
     if ($fromUser <= 0 || $toUser <= 0 || $fromUser === $toUser) {
         setAlert('danger', 'Please choose two different valid users.');
@@ -80,6 +81,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $conn->commit();
         $message = empty($transferSummary) ? 'No records required reassignment.' : 'Data transfer completed: ' . implode(', ', $transferSummary);
+
+        if ($deleteSourceUser) {
+            if (deleteUser($fromUser)) {
+                $message .= ' Source user deleted.';
+            } else {
+                setAlert('warning', $message . ' However, the source user could not be deleted. Make sure at least one admin remains.');
+                redirect('transfer_data.php');
+                exit();
+            }
+        }
+
         setAlert('success', $message);
     } catch (Exception $e) {
         $conn->rollback();
@@ -124,6 +136,13 @@ include __DIR__ . '/../../includes/header.php';
                                     </option>
                                 <?php endforeach; ?>
                             </select>
+                        </div>
+                        <div class="form-check mb-3">
+                            <input class="form-check-input" type="checkbox" value="1" id="delete_source_user" name="delete_source_user">
+                            <label class="form-check-label" for="delete_source_user">
+                                Delete source user after transfer
+                            </label>
+                            <div class="form-text">The user account will be permanently removed once all data is reassigned.</div>
                         </div>
                         <button type="submit" class="btn btn-primary">
                             <i class="fas fa-random me-2"></i>Transfer Data

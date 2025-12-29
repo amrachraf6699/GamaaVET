@@ -82,6 +82,10 @@ CREATE TABLE `customers` (
   `wallet_balance` decimal(10,2) DEFAULT 0.00,
   `portal_token` varchar(64) DEFAULT NULL,
   `portal_token_expires` datetime DEFAULT NULL,
+  `portal_password_hash` varchar(255) DEFAULT NULL,
+  `portal_password_hint` varchar(120) DEFAULT NULL,
+  `portal_password_updated_at` datetime DEFAULT NULL,
+  `portal_last_access_at` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
   `updated_at` timestamp NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;

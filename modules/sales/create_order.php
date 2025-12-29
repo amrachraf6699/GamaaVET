@@ -392,6 +392,12 @@ $products = $pdo->query("
 <script>
     $(document).ready(function() {
         console.log("Document ready");
+        $('#customer_id').select2({
+            placeholder: 'Select Customer',
+            allowClear: true,
+            width: '100%'
+        });
+
         // Load contacts when customer changes
         $('#customer_id').on('change', function() {
             const customerId = $(this).val();

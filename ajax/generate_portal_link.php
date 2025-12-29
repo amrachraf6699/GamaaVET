@@ -20,7 +20,8 @@ if ($customer_id <= 0) {
     exit;
 }
 
-$stmt = $conn->prepare("SELECT id, name, phone, whatsapp_phone, portal_token, portal_token_expires 
+$stmt = $conn->prepare("SELECT id, name, phone, whatsapp_phone, portal_token, portal_token_expires, 
+                               portal_password_hint, portal_password_hash
                         FROM customers WHERE id = ?");
 $stmt->bind_param("i", $customer_id);
 $stmt->execute();
@@ -63,5 +64,7 @@ echo json_encode([
     'success' => true,
     'portal_url' => $portalUrl,
     'whatsapp_url' => $whatsappUrl,
-    'expires_at' => $customer['portal_token_expires']
+    'expires_at' => $customer['portal_token_expires'],
+    'password_required' => !empty($customer['portal_password_hash']),
+    'password_hint' => $customer['portal_password_hint']
 ], JSON_UNESCAPED_UNICODE);

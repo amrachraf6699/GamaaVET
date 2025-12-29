@@ -103,12 +103,15 @@ include __DIR__ . '/../../includes/header.php';
                                                 <?= $user['last_login'] ? formatDateTime($user['last_login']) : 'Never' ?>
                                             </p>
                                         </td>
-                                        <td class="align-middle">
+                                        <td class="align-middle d-flex gap-1 flex-wrap">
                                             <a href="edit.php?id=<?= $user['id'] ?>" class="btn btn-sm btn-warning" data-toggle="tooltip" title="Edit">
                                                 <i class="fas fa-edit"></i>
                                             </a>
                                             <a href="index.php?delete=1&id=<?= $user['id'] ?>" class="btn btn-sm btn-danger" data-toggle="tooltip" title="Delete" onclick="return confirm('Are you sure you want to delete this user?')">
                                                 <i class="fas fa-trash"></i>
+                                            </a>
+                                            <a href="activity_logs.php?user_id=<?= $user['id'] ?>" class="btn btn-sm btn-info" data-toggle="tooltip" title="View Activity">
+                                                <i class="fas fa-clipboard-list"></i>
                                             </a>
                                         </td>
                                     </tr>

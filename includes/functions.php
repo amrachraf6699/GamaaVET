@@ -63,13 +63,28 @@ function setAlert($type, $message) {
 // Function to log activity
 function logActivity($action, $details = null) {
     global $conn;
-    $user_id = $_SESSION['user_id'] ?? 0;
-    $action = sanitize($action);
-    $details = $details ? sanitize(json_encode($details)) : null;
-    
-    $sql = "INSERT INTO activity_logs (user_id, action, details) VALUES (?, ?, ?)";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("iss", $user_id, $action, $details);
+
+    $action = trim((string)$action);
+    if (strlen($action) > 250) {
+        $action = substr($action, 0, 250);
+    }
+
+    $detailsPayload = $details !== null
+        ? json_encode($details, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        : null;
+    $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+    $userId = $_SESSION['user_id'] ?? null;
+
+    if ($userId === null) {
+        $sql = "INSERT INTO activity_logs (user_id, action, details, ip_address) VALUES (NULL, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("sss", $action, $detailsPayload, $ipAddress);
+    } else {
+        $sql = "INSERT INTO activity_logs (user_id, action, details, ip_address) VALUES (?, ?, ?, ?)";
+        $stmt = $conn->prepare($sql);
+        $stmt->bind_param("isss", $userId, $action, $detailsPayload, $ipAddress);
+    }
+
     $stmt->execute();
     $stmt->close();
 }

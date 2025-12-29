@@ -110,8 +110,6 @@ if ($viewMode === 'statement') {
     }
     $pdf->Ln(8);
     $pdf->SetFont('aealarabiya', 'B', 13);
-    $pdf->Cell(60, 8, 'إجمالي الفاتورة:', 0, 0, 'L');
-    $pdf->Cell(0, 8, number_format($order['total_amount'], 2), 0, 1, 'R');
     $pdf->setRTL(false);
     $pdf->Output('statement_' . $order['internal_id'] . '.pdf', 'I');
     exit;

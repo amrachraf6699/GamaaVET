@@ -151,6 +151,7 @@ if ($factories_result) {
                                             <li><a class="dropdown-item edit-customer" href="#" data-id="<?php echo $row['id']; ?>"><i class="fas fa-edit"></i> Edit</a></li>
                                             <li><a class="dropdown-item" href="contacts.php?id=<?php echo $row['id']; ?>"><i class="fas fa-address-book"></i> Contacts</a></li>
                                             <li><a class="dropdown-item" href="wallet.php?id=<?php echo $row['id']; ?>"><i class="fas fa-wallet"></i> Wallet</a></li>
+                                            <li><a class="dropdown-item" href="portal_access.php?id=<?php echo $row['id']; ?>"><i class="fas fa-lock"></i> Portal Access</a></li>
                                             <li>
                                                 <button type="button"
                                                         class="dropdown-item send-portal-link"
@@ -446,12 +447,12 @@ $(document).ready(function() {
         });
     });
 
-    $(document).on('click', '.send-portal-link', function() {
+        $(document).on('click', '.send-portal-link', function() {
         var customerId = $(this).data('id');
         var phone = ($(this).data('phone') || '').toString().trim();
 
         if (!phone.length) {
-            alert('لا يوجد رقم واتساب لهذا العميل.');
+            alert('Please add a WhatsApp number before sending the portal link.');
             return;
         }
 
@@ -462,17 +463,22 @@ $(document).ready(function() {
             dataType: 'json',
             success: function(resp) {
                 if (resp.success) {
-                    alert('تم توليد رابط البوابة للعميل.\nسوف يتم فتح واتساب الآن لإرسال الرابط.');
+                    var passwordMessage = resp.password_required
+                        ? 'Password protection is enabled for this portal.' + (resp.password_hint ? '\nHint: ' + resp.password_hint : '')
+                        : 'No portal password is configured yet.';
+                    alert('Portal link generated successfully.\n' + passwordMessage);
                     window.open(resp.whatsapp_url, '_blank');
                 } else {
-                    alert(resp.message || 'تعذر إنشاء الرابط.');
+                    alert(resp.message || 'Unable to send the portal link.');
                 }
             },
             error: function() {
-                alert('حدث خطأ أثناء إنشاء الرابط.');
+                alert('Unable to reach the server. Please try again.');
             }
         });
     });
+
+
 });
 </script>
 

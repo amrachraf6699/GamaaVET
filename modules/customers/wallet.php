@@ -14,7 +14,6 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 
 $customer_id = sanitize($_GET['id']);
 $page_title = 'Customer Wallet';
-require_once '../../includes/header.php';
 
 // Get customer info for header
 $customer_sql = "SELECT name, wallet_balance FROM customers WHERE id = ?";
@@ -87,6 +86,8 @@ $transactions_stmt = $conn->prepare($transactions_sql);
 $transactions_stmt->bind_param("i", $customer_id);
 $transactions_stmt->execute();
 $transactions_result = $transactions_stmt->get_result();
+
+require_once '../../includes/header.php';
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">

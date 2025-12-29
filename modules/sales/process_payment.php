@@ -1,6 +1,5 @@
 <?php
 require_once '../../includes/auth.php';
-require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
 // Check user role
@@ -30,11 +29,13 @@ if (!$order) {
 }
 
 $balance = $order['total_amount'] - $order['paid_amount'];
+$selectedPaymentMethod = $_POST['payment_method'] ?? 'cash';
 
 // Handle payment submission
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
     $amount = (float)$_POST['amount'];
     $payment_method = $_POST['payment_method'];
+    $selectedPaymentMethod = $payment_method;
     $reference = $_POST['reference'] ?? '';
     $notes = $_POST['notes'] ?? '';
     
@@ -101,6 +102,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         }
     }
 }
+
+require_once '../../includes/header.php';
 ?>
 
 <div class="container mt-4">
@@ -121,7 +124,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                 <div class="col-md-6">
                     <p><strong>Paid Amount:</strong> <?= number_format($order['paid_amount'], 2) ?></p>
                     <p><strong>Balance:</strong> <span class="text-danger"><?= number_format($balance, 2) ?></span></p>
-                    <?php if ($payment_method == 'wallet') : ?>
+                    <?php if ($selectedPaymentMethod === 'wallet') : ?>
                         <p><strong>Wallet Balance:</strong> <?= number_format($order['wallet_balance'], 2) ?></p>
                     <?php endif; ?>
                 </div>
@@ -137,9 +140,9 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <div class="col-md-6">
                         <label for="payment_method" class="form-label">Payment Method</label>
                         <select class="form-select" id="payment_method" name="payment_method" required>
-                            <option value="cash">Cash</option>
-                            <option value="transfer">Bank Transfer</option>
-                            <option value="wallet" <?= $order['wallet_balance'] > 0 ? '' : 'disabled' ?>>
+                            <option value="cash" <?= $selectedPaymentMethod === 'cash' ? 'selected' : ''; ?>>Cash</option>
+                            <option value="transfer" <?= $selectedPaymentMethod === 'transfer' ? 'selected' : ''; ?>>Bank Transfer</option>
+                            <option value="wallet" <?= $order['wallet_balance'] > 0 ? '' : 'disabled'; ?> <?= $selectedPaymentMethod === 'wallet' ? 'selected' : ''; ?>>
                                 Customer Wallet (Balance: <?= number_format($order['wallet_balance'], 2) ?>)
                             </option>
                         </select>
