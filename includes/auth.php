@@ -7,7 +7,7 @@ if (isset($_POST['login'])) {
     $username = sanitize($_POST['username']);
     $password = $_POST['password'];
 
-    $sql = "SELECT * FROM users WHERE username = ? AND is_active = 1";
+    $sql = "SELECT u.*, r.id AS joined_role_id, r.slug AS role_slug FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.username = ? AND u.is_active = 1";
     $stmt = $conn->prepare($sql);
     $stmt->bind_param("s", $username);
     $stmt->execute();
@@ -18,8 +18,23 @@ if (isset($_POST['login'])) {
         if (password_verify($password, $user['password'])) {
             $_SESSION['user_id'] = $user['id'];
             $_SESSION['user_name'] = $user['name'];
-            $_SESSION['user_role'] = $user['role'];
             $_SESSION['user_email'] = $user['email'];
+
+            // Prefer dynamic role from roles table; fall back to legacy column
+            if (!empty($user['role_slug'])) {
+                $_SESSION['role_id'] = (int)($user['joined_role_id'] ?? $user['role_id']);
+                $_SESSION['role_slug'] = $user['role_slug'];
+                // Backward compatibility for existing checks
+                $_SESSION['user_role'] = $user['role_slug'];
+            } else {
+                // Legacy fallback
+                $_SESSION['user_role'] = $user['role'];
+            }
+
+            // Load permission keys into session (if roles exist)
+            if (function_exists('loadUserAccessToSession')) {
+                loadUserAccessToSession($_SESSION['user_id']);
+            }
             
             // Update last login
             $update_sql = "UPDATE users SET last_login = NOW() WHERE id = ?";

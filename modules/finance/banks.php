@@ -2,7 +2,7 @@
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
-if (!hasRole('admin') && !hasRole('accountant')) {
+if (!hasPermission('finance.bank_accounts.create')) {
     setAlert('danger', 'Access denied.');
     redirect('../../dashboard.php');
 }

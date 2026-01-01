@@ -3,8 +3,8 @@ require_once '../../../includes/auth.php';
 require_once '../../../includes/header.php';
 require_once '../../../config/database.php';
 
-// Check user role
-if (!in_array($_SESSION['user_role'], ['admin', 'salesman'])) {
+// Permission check
+if (!hasPermission('quotations.manage')) {
     $_SESSION['error'] = "You don't have permission to access this page";
     header("Location: ../../../dashboard.php");
     exit();

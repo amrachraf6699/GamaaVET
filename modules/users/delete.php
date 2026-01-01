@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/users_functions.php';
 
 // Check permission
-if (!hasPermission('admin')) {
+if (!hasPermission('users.manage')) {
     header("Location: /dashboard.php");
     exit();
 }

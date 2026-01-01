@@ -2,7 +2,7 @@
 require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 
-if (!hasRole('admin') && !hasRole('salesman')) {
+if (!hasPermission('customers.whatsapp_portal')) {
     setAlert('danger', 'You do not have permission to manage portal access.');
     redirect('../../dashboard.php');
 }

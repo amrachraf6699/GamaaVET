@@ -4,7 +4,7 @@ require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
 
-if (!hasRole('admin') && !hasRole('inventory_manager')) {
+if (!hasPermission('inventories.view')) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }

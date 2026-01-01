@@ -4,7 +4,7 @@ require_once '../includes/functions.php';
 
 header('Content-Type: application/json');
 
-if (!hasRole('admin') && !hasRole('accountant')) {
+if (!hasPermission('vendors.view')) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }

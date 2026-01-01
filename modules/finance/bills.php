@@ -2,7 +2,7 @@
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
-if (!hasRole('admin') && !hasRole('accountant')) {
+if (!hasPermission('finance.customer_payment.process')) {
     setAlert('danger', 'No access to this page.');
     redirect('../../dashboard.php');
 }

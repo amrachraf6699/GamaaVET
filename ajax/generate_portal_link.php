@@ -4,7 +4,7 @@ require_once '../includes/functions.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
-if (!isset($_SESSION['user_role']) || !in_array($_SESSION['user_role'], ['admin', 'salesman', 'accountant'])) {
+if (!hasPermission('customers.whatsapp_portal')) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }

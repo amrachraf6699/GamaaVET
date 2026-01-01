@@ -28,10 +28,44 @@ function isLoggedIn() {
     return isset($_SESSION['user_id']);
 }
 
-// Function to check user role
-function hasRole($role) {
-    if (!isLoggedIn()) return false;
-    return $_SESSION['user_role'] === $role;
+// Load the current user's role + permissions from DB into session (idempotent)
+function loadUserAccessToSession($userId) {
+    global $conn;
+    if (!isset($userId)) return;
+
+    // Fetch role info
+    $stmt = $conn->prepare("SELECT u.role_id, r.slug AS role_slug FROM users u LEFT JOIN roles r ON r.id = u.role_id WHERE u.id = ?");
+    $stmt->bind_param("i", $userId);
+    $stmt->execute();
+    $res = $stmt->get_result();
+    if ($row = $res->fetch_assoc()) {
+        if (!empty($row['role_slug'])) {
+            $_SESSION['role_id'] = (int)$row['role_id'];
+            $_SESSION['role_slug'] = $row['role_slug'];
+            // Backward compatibility: keep user_role as slug
+            $_SESSION['user_role'] = $row['role_slug'];
+        }
+    }
+    $stmt->close();
+
+    // Fetch permission keys for the role
+    if (isset($_SESSION['role_id'])) {
+        $permStmt = $conn->prepare("SELECT p.`key` FROM role_permissions rp INNER JOIN permissions p ON p.id = rp.permission_id WHERE rp.role_id = ?");
+        $permStmt->bind_param("i", $_SESSION['role_id']);
+        $permStmt->execute();
+        $permRes = $permStmt->get_result();
+        $perms = [];
+        while ($row = $permRes->fetch_assoc()) {
+            $perms[] = $row['key'];
+        }
+        $_SESSION['permissions'] = $perms;
+        $permStmt->close();
+    }
+}
+
+// Function alias: treat hasRole as permission check
+function hasRole($permissionKey) {
+    return hasPermission($permissionKey);
 }
 
 // Function to redirect
@@ -178,18 +212,24 @@ function formatDateTime($datetime) {
     return date('M j, Y g:i A', strtotime($datetime));
 }
 
-function hasPermission($requiredRole) {
-    if (!isset($_SESSION['user_role'])) {
-        return false;
+function hasPermission($permissionKey) {
+    if (!isLoggedIn()) return false;
+
+    // Ensure role/permissions are loaded
+    if (!isset($_SESSION['role_slug']) || !isset($_SESSION['permissions'])) {
+        loadUserAccessToSession($_SESSION['user_id']);
     }
-    
-    // Admin has all permissions
-    if ($_SESSION['user_role'] === 'admin') {
+
+    $roleSlug = $_SESSION['role_slug'] ?? ($_SESSION['user_role'] ?? null);
+    if ($roleSlug === 'admin') {
         return true;
     }
-    
-    // Check if the user's role matches the required role
-    return $_SESSION['user_role'] === $requiredRole;
+
+    if (!isset($_SESSION['permissions']) || !is_array($_SESSION['permissions'])) {
+        return false;
+    }
+
+    return in_array($permissionKey, $_SESSION['permissions'], true);
 }
 
 function displayMessage() {

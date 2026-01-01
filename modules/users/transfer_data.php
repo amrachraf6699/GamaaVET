@@ -3,7 +3,7 @@ require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 require_once 'users_functions.php';
 
-if (!hasPermission('admin')) {
+if (!hasPermission('users.manage')) {
     setAlert('danger', 'Access denied.');
     redirect('../../dashboard.php');
 }

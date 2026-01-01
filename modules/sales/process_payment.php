@@ -2,8 +2,8 @@
 require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 
-// Check user role
-if (!in_array($_SESSION['user_role'], ['admin', 'accountant'])) {
+// Permission check
+if (!hasPermission('finance.customer_payment.process')) {
     $_SESSION['error'] = "You don't have permission to access this page";
     header("Location: ../../dashboard.php");
     exit();

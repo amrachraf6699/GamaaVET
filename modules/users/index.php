@@ -14,7 +14,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/users_functions.php';
 
 // Check permission
-if (!hasPermission('admin')) {
+if (!hasPermission('users.manage')) {
     header("Location: /dashboard.php");
     exit();
 }
@@ -49,6 +49,9 @@ include __DIR__ . '/../../includes/header.php';
                 <div class="card-header pb-0 d-flex justify-content-between align-items-center">
                     <h6>Users List</h6>
                     <div class="d-flex gap-2">
+                        <a href="../roles/index.php" class="btn btn-outline-secondary btn-sm">
+                            <i class="fas fa-shield-halved"></i> Roles
+                        </a>
                         <a href="transfer_data.php" class="btn btn-outline-secondary btn-sm">
                             <i class="fas fa-random"></i> Transfer Data
                         </a>
@@ -89,8 +92,9 @@ include __DIR__ . '/../../includes/header.php';
                                             <p class="text-xs font-weight-bold mb-0"><?= htmlspecialchars($user['email']) ?></p>
                                         </td>
                                         <td>
-                                            <span class="badge badge-sm bg-<?= getRoleColor($user['role']) ?>">
-                                                <?= ucfirst($user['role']) ?>
+                                            <?php $roleSlug = $user['role_slug'] ?? $user['role']; ?>
+                                            <span class="badge badge-sm bg-<?= getRoleColor($roleSlug) ?>">
+                                                <?= ucfirst($roleSlug) ?>
                                             </span>
                                         </td>
                                         <td>
@@ -163,20 +167,13 @@ include __DIR__ . '/../../includes/header.php';
                         </div>
                         <div class="col-md-6">
                             <div class="form-group">
-                                <label for="role">Role</label>
-                                <select class="form-control" id="role" name="role" required>
-    <option value="">Select Role</option>
-    <option value="admin">Admin</option>
-    <option value="accountant">Accountant</option>
-    <option value="salesman">Salesman</option>
-    <option value="inventory_manager">Inventory Manager</option>
-    <option value="purchasing_supervisor">Purchasing Supervisor</option>
-    <option value="inventory_supervisor">Inventory Supervisor</option>
-    <option value="operations_manager">Operations Manager</option>
-    <option value="production_supervisor">Production Supervisor</option>
-    <option value="production_manager">Production Manager</option>
-    <option value="sales_manager">Sales Manager</option>
-</select>
+                                <label for="role_id">Role</label>
+                                <select class="form-control" id="role_id" name="role_id" required>
+                                    <option value="">Select Role</option>
+                                    <?php foreach (getAllRoles() as $role): ?>
+                                        <option value="<?= $role['id'] ?>"><?= htmlspecialchars($role['name']) ?> (<?= htmlspecialchars($role['slug']) ?>)</option>
+                                    <?php endforeach; ?>
+                                </select>
                             </div>
                         </div>
                     </div>

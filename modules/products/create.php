@@ -17,8 +17,8 @@ if (!isset($conn) || !$conn instanceof mysqli || $conn->connect_error) {
     die("Database connection failed");
 }
 
-// Role check
-if (!hasRole('admin') && !hasRole('inventory_manager')) {
+// Permission check
+if (!hasPermission('products.create')) {
     setAlert('danger', 'You do not have permission to access this page.');
     redirect(BASE_URL . '/dashboard.php');
 }

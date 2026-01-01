@@ -2,7 +2,7 @@
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
-if (!hasRole('admin') && !hasRole('salesman') && !hasRole('accountant')) {
+if (!hasPermission('customers.wallet') && !hasPermission('finance.customer_wallet.view')) {
     setAlert('danger', 'You do not have permission to access this page.');
     redirect('../../dashboard.php');
 }

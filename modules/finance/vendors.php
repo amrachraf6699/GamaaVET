@@ -2,7 +2,7 @@
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
-if (!hasRole('admin') && !hasRole('accountant')) {
+if (!hasPermission('finance.vendor_wallet.view')) {
     setAlert('danger', 'Access denied.');
     redirect('../../dashboard.php');
 }

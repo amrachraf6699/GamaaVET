@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 // Start session if not already started
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
@@ -9,7 +9,7 @@ require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/users_functions.php';
 
 // Check permission
-if (!hasPermission('admin')) {
+if (!hasPermission('users.manage')) {
     $_SESSION['message'] = ['type' => 'danger', 'text' => 'You do not have permission to access this page'];
     header("Location: /dashboard.php");
     exit();
@@ -33,7 +33,7 @@ if (!$user) {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate input
-    $required = ['name', 'username', 'email', 'role'];
+    $required = ['name', 'username', 'email'];
     foreach ($required as $field) {
         if (empty($_POST[$field])) {
             $_SESSION['message'] = ['type' => 'danger', 'text' => 'All required fields must be filled'];
@@ -46,7 +46,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = trim($_POST['name']);
     $username = trim($_POST['username']);
     $email = trim($_POST['email']);
-    $role = $_POST['role'];
+    $role_id = isset($_POST['role_id']) ? (int)$_POST['role_id'] : 0;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
     
     // Validate email format
@@ -87,7 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         'name' => $name,
         'username' => $username,
         'email' => $email,
-        'role' => $role,
+        'role_id' => $role_id,
         'is_active' => $is_active
     ];
     
@@ -153,11 +153,13 @@ include __DIR__ . '/../../includes/header.php';
                             </div>
                             <div class="col-md-6">
                                 <div class="form-group">
-    <label for="role">Role *</label>
-    <select class="form-control" id="role" name="role" required>
-        <option value="admin" <?= $user['role'] === 'admin' ? 'selected' : '' ?>>Admin</option>
-        <option value="accountant" <?= $user['role'] === 'accountant' ? 'selected' : '' ?>>Accountant</option>
-        <option value="salesman" <?= $user['role'] === 'salesman' ? 'selected' : '' ?>>Salesman</option>
+    <label for="role_id">Role *</label>
+    <select class="form-control" id="role_id" name="role_id" required>
+        <?php foreach (getAllRoles(true) as $role): ?>
+            <option value="<?= $role['id'] ?>" <?= ((int)($user['role_id'] ?? 0) === (int)$role['id']) ? 'selected' : '' ?>>
+                <?= htmlspecialchars($role['name']) ?> (<?= htmlspecialchars($role['slug']) ?>)
+            </option>
+        <?php endforeach; ?>
         <option value="inventory_manager" <?= $user['role'] === 'inventory_manager' ? 'selected' : '' ?>>Inventory Manager</option>
         <option value="purchasing_supervisor" <?= $user['role'] === 'purchasing_supervisor' ? 'selected' : '' ?>>Purchasing Supervisor</option>
         <option value="inventory_supervisor" <?= $user['role'] === 'inventory_supervisor' ? 'selected' : '' ?>>Inventory Supervisor</option>
@@ -232,3 +234,4 @@ document.getElementById('editUserForm').addEventListener('submit', function(e) {
 </script>
 
 <?php include __DIR__ . '/../../includes/footer.php'; ?>
+

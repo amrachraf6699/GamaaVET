@@ -7,7 +7,8 @@ header('Content-Type: application/json; charset=utf-8');
 ini_set('display_errors', 0);
 
 // authz
-if (!isset($_SESSION['user_role']) || !in_array($_SESSION['user_role'], ['admin', 'salesman'])) {
+require_once '../includes/functions.php';
+if (!hasPermission('customers.details.view')) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']); exit;
 }
 

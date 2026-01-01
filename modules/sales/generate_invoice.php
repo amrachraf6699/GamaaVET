@@ -2,8 +2,8 @@
 require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 
-// Check user role
-if (!in_array($_SESSION['user_role'], ['admin', 'salesman', 'accountant'])) {
+// Permission check
+if (!hasPermission('sales.orders.print_invoice')) {
     die("You don't have permission to access this page");
 }
 

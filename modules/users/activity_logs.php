@@ -2,7 +2,7 @@
 require_once '../../includes/auth.php';
 require_once '../../config/database.php';
 
-if (!hasRole('admin')) {
+if (!hasPermission('users.manage')) {
     setAlert('danger', 'You do not have permission to view activity logs.');
     redirect('../../dashboard.php');
 }

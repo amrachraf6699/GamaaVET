@@ -499,6 +499,7 @@ CREATE TABLE `users` (
   `name` varchar(100) NOT NULL,
   `email` varchar(100) NOT NULL,
   `role` enum('admin','accountant','salesman','inventory_manager','purchasing_supervisor','inventory_supervisor','operations_manager','production_supervisor','production_manager','sales_manager') NOT NULL,
+  `role_id` int(11) DEFAULT NULL,
   `is_active` tinyint(1) DEFAULT 1,
   `last_login` datetime DEFAULT NULL,
   `created_at` timestamp NULL DEFAULT current_timestamp(),
@@ -510,6 +511,44 @@ CREATE TABLE `users` (
 
 --
 -- Table structure for table `vendors`
+
+--
+-- Table structure for table `roles`
+--
+
+CREATE TABLE `roles` (
+  `id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `slug` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NULL DEFAULT current_timestamp()
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `permissions`
+--
+
+CREATE TABLE `permissions` (
+  `id` int(11) NOT NULL,
+  `module` varchar(50) DEFAULT NULL,
+  `name` varchar(100) NOT NULL,
+  `key` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `role_permissions`
+--
+
+CREATE TABLE `role_permissions` (
+  `role_id` int(11) NOT NULL,
+  `permission_id` int(11) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 --
 
 CREATE TABLE `vendors` (
@@ -610,6 +649,57 @@ CREATE TABLE `vendor_wallet_transactions` (
 --
 -- Indexes for dumped tables
 --
+
+--
+-- Seed base roles and permissions
+--
+
+INSERT INTO `roles` (`id`, `name`, `slug`, `description`, `is_active`) VALUES
+  (1, 'Administrator', 'admin', 'Full access', 1),
+  (2, 'Accountant', 'accountant', 'Finance and vendors access', 1),
+  (3, 'Sales', 'salesman', 'Sales and customers access', 1),
+  (4, 'Inventory Manager', 'inventory_manager', 'Inventory and products access', 1),
+  (5, 'Purchasing Supervisor', 'purchasing_supervisor', 'Purchasing oversight', 1),
+  (6, 'Inventory Supervisor', 'inventory_supervisor', 'Inventory oversight', 1),
+  (7, 'Operations Manager', 'operations_manager', 'Operations oversight', 1),
+  (8, 'Production Supervisor', 'production_supervisor', 'Production oversight', 1),
+  (9, 'Production Manager', 'production_manager', 'Production management', 1),
+  (10, 'Sales Manager', 'sales_manager', 'Sales management', 1);
+
+INSERT INTO `permissions` (`id`, `module`, `name`, `key`, `description`) VALUES
+  (1, 'dashboard', 'View Dashboard', 'dashboard.view', NULL),
+  (2, 'sales', 'View Sales', 'sales.view', NULL),
+  (3, 'sales', 'Create Order', 'sales.create_order', NULL),
+  (4, 'sales', 'Process Payment', 'sales.process_payment', NULL),
+  (5, 'customers', 'View Customers', 'customers.view', NULL),
+  (6, 'customers', 'Manage Customers', 'customers.manage', NULL),
+  (7, 'customers', 'Customer Wallet', 'customers.wallet', NULL),
+  (8, 'inventories', 'View Inventories', 'inventories.view', NULL),
+  (9, 'inventories', 'Manage Inventories', 'inventories.manage', NULL),
+  (10, 'inventories', 'Transfer Items', 'inventories.transfer', NULL),
+  (11, 'products', 'View Products', 'products.view', NULL),
+  (12, 'products', 'Manage Products', 'products.manage', NULL),
+  (13, 'products', 'Bulk Upload', 'products.bulk_upload', NULL),
+  (14, 'categories', 'Manage Categories', 'categories.manage', NULL),
+  (15, 'purchases', 'View Purchases', 'purchases.view', NULL),
+  (16, 'purchases', 'Manage Purchases', 'purchases.manage', NULL),
+  (17, 'vendors', 'View Vendors', 'vendors.view', NULL),
+  (18, 'vendors', 'Manage Vendors', 'vendors.manage', NULL),
+  (19, 'finance', 'View Finance', 'finance.view', NULL),
+  (20, 'finance', 'Manage Finance', 'finance.manage', NULL),
+  (21, 'users', 'View Activity Logs', 'users.activity_logs.view', NULL),
+  (22, 'quotations', 'Manage Quotations', 'quotations.manage', NULL);
+
+-- Account permissions mapping (admin implicitly has all via app logic)
+INSERT INTO `role_permissions` (`role_id`, `permission_id`) VALUES
+  -- Accountant
+  (2, 2), (2, 4), (2, 15), (2, 16), (2, 17), (2, 18), (2, 19), (2, 20),
+  -- Sales
+  (3, 2), (3, 3), (3, 5), (3, 6), (3, 22),
+  -- Inventory Manager
+  (4, 8), (4, 9), (4, 10), (4, 11), (4, 12), (4, 13), (4, 14),
+  -- Sales Manager (example: can view sales and customers)
+  (10, 2), (10, 5);
 
 --
 -- Indexes for table `activity_logs`
@@ -819,11 +909,36 @@ ALTER TABLE `transfer_items`
 ALTER TABLE `users`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `username` (`username`),
-  ADD UNIQUE KEY `email` (`email`);
+  ADD UNIQUE KEY `email` (`email`),
+  ADD KEY `role_id` (`role_id`);
 
 --
 -- Indexes for table `vendors`
 --
+
+--
+-- Indexes for table `roles`
+--
+
+ALTER TABLE `roles`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `slug` (`slug`);
+
+--
+-- Indexes for table `permissions`
+--
+
+ALTER TABLE `permissions`
+  ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `key` (`key`);
+
+--
+-- Indexes for table `role_permissions`
+--
+
+ALTER TABLE `role_permissions`
+  ADD PRIMARY KEY (`role_id`,`permission_id`),
+  ADD KEY `permission_id` (`permission_id`);
 ALTER TABLE `vendors`
   ADD PRIMARY KEY (`id`);
 
@@ -1034,6 +1149,20 @@ ALTER TABLE `users`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `roles`
+--
+
+ALTER TABLE `roles`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `permissions`
+--
+
+ALTER TABLE `permissions`
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `vendors`
 --
 ALTER TABLE `vendors`
@@ -1232,6 +1361,21 @@ ALTER TABLE `vendor_documents`
 --
 ALTER TABLE `vendor_wallet_transactions`
   ADD CONSTRAINT `vendor_wallet_transactions_ibfk_1` FOREIGN KEY (`vendor_id`) REFERENCES `vendors` (`id`);
+ 
+--
+-- Constraints for table `users`
+--
+
+ALTER TABLE `users`
+  ADD CONSTRAINT `users_ibfk_role` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE SET NULL;
+
+--
+-- Constraints for table `role_permissions`
+--
+
+ALTER TABLE `role_permissions`
+  ADD CONSTRAINT `role_permissions_ibfk_1` FOREIGN KEY (`role_id`) REFERENCES `roles` (`id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `role_permissions_ibfk_2` FOREIGN KEY (`permission_id`) REFERENCES `permissions` (`id`) ON DELETE CASCADE;
 COMMIT;
 
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;

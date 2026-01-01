@@ -12,14 +12,14 @@ require_once __DIR__ . '/../../includes/functions.php';
 require_once __DIR__ . '/users_functions.php';
 
 // Check permission
-if (!hasPermission('admin')) {
+if (!hasPermission('users.manage')) {
     header("Location: index.php");
     exit();
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Validate input
-    $required = ['name', 'username', 'email', 'role', 'password', 'confirm_password'];
+    $required = ['name', 'username', 'email', 'password', 'confirm_password'];
     foreach ($required as $field) {
         if (empty($_POST[$field])) {
             $_SESSION['message'] = ['type' => 'danger', 'text' => 'All fields are required'];
@@ -47,7 +47,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         exit();
     }
     
-    // Create user
+    // Create user (accept role_id from form)
     if (createUser($_POST)) {
         $_SESSION['message'] = ['type' => 'success', 'text' => 'User created successfully'];
     } else {
