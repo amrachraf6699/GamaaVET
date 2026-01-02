@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 
 <head>
@@ -50,6 +50,11 @@
             <ul class="navbar-nav me-auto mb-2 mb-lg-0 gap-lg-1">
 
                 <?php if (isLoggedIn()): ?>
+                    <?php // Ensure freshest role/permissions each request
+                    if (function_exists('loadUserAccessToSession')) {
+                        loadUserAccessToSession($_SESSION['user_id']);
+                    }
+                    ?>
 
                     <li class="nav-item">
                         <a class="nav-link" href="<?= BASE_URL ?>dashboard.php">
@@ -60,8 +65,8 @@
                     <!-- Sales -->
                     <?php $canSales = hasPermission('sales.orders.view_all') || hasPermission('sales.orders.create') || hasPermission('quotations.manage') || hasPermission('customers.view'); ?>
                     <?php if ($canSales): ?>
-                    <li class="nav-item dropdown">
-                        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
+<li class="nav-item dropdown">
+        <a class="nav-link dropdown-toggle" href="#" data-bs-toggle="dropdown">
                             <i class="fas fa-cart-shopping me-1"></i> Sales
                         </a>
                         <ul class="dropdown-menu">
@@ -216,6 +221,14 @@
                     <?php endif; ?>
 
                 <?php endif; ?>
+                    <!-- Tickets -->
+                    <?php if (hasPermission('tickets.manage') || hasPermission('tickets.create') || hasPermission('tickets.view')): ?>
+                    <li class="nav-item">
+                        <a class="nav-link" href="<?= BASE_URL ?>modules/tickets/">
+                            <i class="fas fa-ticket-alt me-1"></i> Tickets
+                        </a>
+                    </li>
+                    <?php endif; ?>
 
                 <!-- Finance -->
                 <?php 
@@ -267,6 +280,18 @@
             <!-- Right -->
             <ul class="navbar-nav ms-auto">
                 <?php if (isLoggedIn()): ?>
+    <?php $notifCount = function_exists('getUnreadNotificationsCount') ? getUnreadNotificationsCount() : 0; ?>
+    <?php if ($notifCount > 0 && hasPermission('notifications.view')): ?>
+        <li class="nav-item me-2">
+            <a class="nav-link position-relative" href="<?= BASE_URL ?>modules/notifications/index.php">
+                <i class="fas fa-bell"></i>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
+                    <?= $notifCount ?>
+                </span>
+            </a>
+        </li>
+    <?php endif; ?>
+    
                     <li class="nav-item dropdown">
                         <a class="nav-link dropdown-toggle d-flex align-items-center gap-1" href="#" data-bs-toggle="dropdown">
                             <i class="fas fa-user-circle fs-5"></i>
@@ -289,7 +314,100 @@
         </div>
     </div>
 </nav>
+<!-- Notification toast + poller -->
+<?php if (isLoggedIn() && hasPermission('notifications.view')): ?>
+<div class="position-fixed bottom-0 end-0 p-3" style="z-index: 1080">
+  <div id="notifToast" class="toast align-items-center text-bg-primary border-0" role="alert" aria-live="assertive" aria-atomic="true">
+    <div class="d-flex">
+      <div class="toast-body">
+        <i class="fas fa-bell me-2"></i> New notifications arrived.
+      </div>
+      <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+    </div>
+  </div>
+</div>
+<audio id="notifSound"><source src="<?= BASE_URL ?>assets/notify.mp3" type="audio/mpeg"></audio>
+<script>
+(function(){
+  let last = parseInt(localStorage.getItem('notif_last_count')||'0',10);
+  function check(){
+    fetch('<?= BASE_URL ?>modules/notifications/unread_count.php').then(r=>r.json()).then(d=>{
+      const c = parseInt((d&&d.count)||0,10);
+      if (c>last){
+        try { document.getElementById('notifSound').play().catch(()=>{}); } catch(e){}
+        const t = new bootstrap.Toast(document.getElementById('notifToast')); t.show();
+      }
+      last = c; localStorage.setItem('notif_last_count', String(c));
+    }).catch(()=>{});
+  }
+  setInterval(check, 30000); // every 30s
+  document.addEventListener('DOMContentLoaded', check);
+})();
+</script>
+<?php endif; ?>
+<!-- Floating Ticket Button (permission-gated) -->
+<?php if (isLoggedIn() && (hasPermission('tickets.create') || hasPermission('tickets.manage'))): ?>
+<style>
+  #ticket-fab { position: fixed; bottom: 22px; right: 22px; z-index: 1050; }
+  #ticket-fab .btn-circle { width:56px;height:56px;border-radius:50%; }
+</style>
+<div id="ticket-fab">
+  <button class="btn btn-primary shadow btn-circle" data-bs-toggle="offcanvas" data-bs-target="#ticketsOffcanvas" aria-controls="ticketsOffcanvas">
+    <i class="fas fa-ticket-alt"></i>
+  </button>
+</div>
+
+<div class="offcanvas offcanvas-end" tabindex="-1" id="ticketsOffcanvas" aria-labelledby="ticketsOffcanvasLabel">
+  <div class="offcanvas-header">
+    <h5 id="ticketsOffcanvasLabel"><i class="fas fa-ticket-alt me-2"></i>My Tickets</h5>
+    <button type="button" class="btn-close text-reset" data-bs-dismiss="offcanvas" aria-label="Close"></button>
+  </div>
+  <div class="offcanvas-body">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+      <div class="text-muted small">Open/Assigned</div>
+      <a href="<?= BASE_URL ?>modules/tickets/create.php" class="btn btn-sm btn-primary"><i class="fas fa-plus"></i> New</a>
+    </div>
+    <div id="ticketList" class="list-group small"></div>
+    <div id="ticketEmpty" class="text-muted small">No tickets assigned.</div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const list = document.getElementById('ticketList');
+  const empty = document.getElementById('ticketEmpty');
+  if (!list || !empty) return;
+  fetch('<?= BASE_URL ?>modules/tickets/list_assigned.php')
+    .then(r => r.json())
+    .then(data => {
+      list.innerHTML = '';
+      if (!data || !Array.isArray(data) || data.length === 0) { empty.style.display='block'; return; }
+      empty.style.display='none';
+      data.forEach(t => {
+        const a = document.createElement('a');
+        a.href = '<?= BASE_URL ?>modules/tickets/view.php?id=' + t.id;
+        a.className = 'list-group-item list-group-item-action d-flex justify-content-between align-items-start';
+        a.innerHTML = '<div class="me-auto">'
+          + '<div class="fw-semibold">#'+t.id+' '+escapeHtml(t.title)+'</div>'
+          + '<div class="text-muted">'+t.status+' • '+t.priority+'</div>'
+          + '</div>'
+          + '<span class="badge bg-secondary">'+(t.assigned_role||'')+'</span>';
+        list.appendChild(a);
+      });
+    }).catch(()=>{});
+  function escapeHtml(s){return s? s.replace(/[&<>\"']/g, m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])):''}
+})();
+</script>
+<?php endif; ?>
+
 
 
     <div class="container mt-4">
         <?php displayAlert(); ?>
+
+
+
+
+
+
+

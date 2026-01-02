@@ -232,6 +232,52 @@ function hasPermission($permissionKey) {
     return in_array($permissionKey, $_SESSION['permissions'], true);
 }
 
+// Notifications helpers
+function getUnreadNotificationsCount() {
+    global $conn;
+    if (!isLoggedIn()) return 0;
+    if (!isset($_SESSION['role_id'])) {
+        loadUserAccessToSession($_SESSION['user_id']);
+    }
+    $roleId = $_SESSION['role_id'] ?? null;
+    $userId = $_SESSION['user_id'];
+    if ($roleId === null) return 0;
+
+    $sql = "SELECT COUNT(*) AS c FROM notifications 
+            WHERE is_read = 0 AND (created_for_role_id = ? OR created_for_user_id = ?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('ii', $roleId, $userId);
+    $stmt->execute();
+    $res = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    return (int)($res['c'] ?? 0);
+}
+
+function createNotification($type, $title, $message, $module = null, $entity_type = null, $entity_id = null, $severity = 'warning', $for_role_id = null, $for_user_id = null, $created_by = null) {
+    global $conn;
+    $sql = "INSERT INTO notifications (type,title,message,module,entity_type,entity_id,severity,created_for_role_id,created_for_user_id,created_by) 
+            VALUES (?,?,?,?,?,?,?,?,?,?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('sssssiissi', $type,$title,$message,$module,$entity_type,$entity_id,$severity,$for_role_id,$for_user_id,$created_by);
+    $stmt->execute();
+    $id = $stmt->insert_id;
+    $stmt->close();
+    return $id;
+}
+
+function createTicket($notification_id, $title, $description, $priority = 'medium', $assigned_to_role_id = null, $assigned_to_user_id = null) {
+    global $conn;
+    $created_by = $_SESSION['user_id'] ?? null;
+    $sql = "INSERT INTO tickets (notification_id,title,description,priority,assigned_to_role_id,assigned_to_user_id,created_by) 
+            VALUES (?,?,?,?,?,?,?)";
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param('isssiii', $notification_id, $title, $description, $priority, $assigned_to_role_id, $assigned_to_user_id, $created_by);
+    $stmt->execute();
+    $id = $stmt->insert_id;
+    $stmt->close();
+    return $id;
+}
+
 function displayMessage() {
     if (isset($_SESSION['message'])) {
         $message = $_SESSION['message'];

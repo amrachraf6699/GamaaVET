@@ -160,13 +160,6 @@ include __DIR__ . '/../../includes/header.php';
                 <?= htmlspecialchars($role['name']) ?> (<?= htmlspecialchars($role['slug']) ?>)
             </option>
         <?php endforeach; ?>
-        <option value="inventory_manager" <?= $user['role'] === 'inventory_manager' ? 'selected' : '' ?>>Inventory Manager</option>
-        <option value="purchasing_supervisor" <?= $user['role'] === 'purchasing_supervisor' ? 'selected' : '' ?>>Purchasing Supervisor</option>
-        <option value="inventory_supervisor" <?= $user['role'] === 'inventory_supervisor' ? 'selected' : '' ?>>Inventory Supervisor</option>
-        <option value="operations_manager" <?= $user['role'] === 'operations_manager' ? 'selected' : '' ?>>Operations Manager</option>
-        <option value="production_supervisor" <?= $user['role'] === 'production_supervisor' ? 'selected' : '' ?>>Production Supervisor</option>
-        <option value="production_manager" <?= $user['role'] === 'production_manager' ? 'selected' : '' ?>>Production Manager</option>
-        <option value="sales_manager" <?= $user['role'] === 'sales_manager' ? 'selected' : '' ?>>Sales Manager</option>
     </select>
 </div>
                             </div>
