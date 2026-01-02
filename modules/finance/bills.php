@@ -46,7 +46,7 @@ $result = $conn->query($sql);
                             <td><?= number_format($row['paid_amount'], 2); ?></td>
                             <td><span class="badge bg-info"><?= $row['status']; ?></span></td>
                             <td>
-                                <a href="../../modules/sales/orders/payment.php?id=<?= $row['id']; ?>" class="btn btn-sm btn-success">
+                                <a href="../../modules/sales/process_payment.php?order_id=<?= $row['id']; ?>" class="btn btn-sm btn-success">
                                     <i class="fas fa-credit-card"></i> Pay
                                 </a>
                             </td>
@@ -59,3 +59,5 @@ $result = $conn->query($sql);
 </div>
 
 <?php require_once '../../includes/footer.php'; ?>
+
+

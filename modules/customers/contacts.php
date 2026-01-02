@@ -14,7 +14,6 @@ if (!isset($_GET['id']) || !is_numeric($_GET['id'])) {
 
 $customer_id = sanitize($_GET['id']);
 $page_title = 'Customer Contacts';
-require_once '../../includes/header.php';
 
 // Get customer info for header
 $customer_sql = "SELECT name FROM customers WHERE id = ?";
@@ -153,6 +152,9 @@ $contacts_stmt = $conn->prepare($contacts_sql);
 $contacts_stmt->bind_param("i", $customer_id);
 $contacts_stmt->execute();
 $contacts_result = $contacts_stmt->get_result();
+
+// Include header only after all possible redirects and processing
+require_once '../../includes/header.php';
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -258,3 +260,5 @@ $contacts_result = $contacts_stmt->get_result();
 </div>
 
 <?php require_once '../../includes/footer.php'; ?>
+
+
