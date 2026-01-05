@@ -8,7 +8,7 @@ ini_set('display_errors', 0);
 
 // authz
 require_once '../includes/functions.php';
-if (!hasPermission('customers.details.view')) {
+if (!(hasPermission('customers.details.view') || hasPermission('quotations.manage') || hasPermission('sales.orders.create') || hasPermission('sales.orders.view_all'))) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']); exit;
 }
 
@@ -66,3 +66,6 @@ echo json_encode([
     'contacts' => $contacts
 ], JSON_UNESCAPED_UNICODE);
 exit;
+
+
+

@@ -1,6 +1,5 @@
 <?php
 require_once '../../../includes/auth.php';
-require_once '../../../includes/header.php';
 require_once '../../../config/database.php';
 
 // Permission check
@@ -93,6 +92,8 @@ $products = $pdo->query("
 $quotation_date = date('Y-m-d');
 $expiry_date = date('Y-m-d', strtotime('+30 days'));
 ?>
+<?php require_once '../../../includes/header.php'; ?>
+
 
 <div class="container mt-4">
     <h2>Create New Quotation</h2>
@@ -237,25 +238,36 @@ $expiry_date = date('Y-m-d', strtotime('+30 days'));
 
 <script>
 $(document).ready(function() {
-    // Load contacts when customer changes
-    $('#customer_id').change(function() {
+            // Load contacts when customer changes
+    $("#customer_id").on('change', function() {
         const customerId = $(this).val();
         if (customerId) {
-            $('#contact_id').prop('disabled', false);
-            $.get('../../../ajax/get_customer_details.php?customer_id=' + customerId, function(data) {
-                const contacts = JSON.parse(data).contacts;
+            $("#contact_id").prop('disabled', false).html('<option>Loading...</option>');
+            $.getJSON('../../../ajax/get_customer_details.php', { customer_id: customerId })
+             .done(function(resp){
+                if (!resp || resp.success !== true) {
+                    $("#contact_id").html('<option value="">No contacts found</option>');
+                    return;
+                }
                 let options = '<option value="">Select Contact</option>';
-                contacts.forEach(contact => {
-                    options += `<option value="${contact.id}" ${contact.is_primary ? 'selected' : ''}>${contact.name} (${contact.phone})</option>`;
-                });
-                $('#contact_id').html(options);
-            });
+                if (Array.isArray(resp.contacts) && resp.contacts.length) {
+                    resp.contacts.forEach(function(contact){
+                        const selected = contact.is_primary ? 'selected' : '';
+                        const phone = contact.phone ? ' ('+contact.phone+')' : '';
+                        options += '<option value="'+contact.id+'" '+selected+'>' + contact.name + phone + '</option>';
+                    });
+                    $("#contact_id").html(options);
+                } else {
+                    $("#contact_id").html('<option value="">No contacts found</option>');
+                }
+             })
+             .fail(function(){
+                $("#contact_id").html('<option value="">Failed to load contacts</option>');
+             });
         } else {
-            $('#contact_id').prop('disabled', true).html('<option value="">Select Customer First</option>');
+            $("#contact_id").prop('disabled', true).html('<option value="">Select Customer First</option>');
         }
-    });
-    
-    // Add item button
+    });// Add item button
     $('#addItemBtn').click(function() {
         $('#productModal').modal('show');
     });
@@ -264,7 +276,7 @@ $(document).ready(function() {
     $(document).on('click', '.select-product', function() {
         const productId = $(this).data('id');
         const productName = $(this).data('name');
-        const productPrice = $(this).data('price');
+        const productPrice = parseFloat($(this).data('price')) || 0;
         
         const rowId = 'item_' + productId;
         
@@ -334,3 +346,9 @@ $(document).ready(function() {
 </script>
 
 <?php require_once '../../../includes/footer.php'; ?>
+
+
+
+
+
+
