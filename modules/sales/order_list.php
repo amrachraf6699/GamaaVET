@@ -109,7 +109,7 @@ $customers = $pdo->query("SELECT id, name FROM customers ORDER BY name")->fetchA
             </form>
             
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table js-datatable table-striped table-hover">
                     <thead>
                         <tr>
                             <th>Order ID</th>

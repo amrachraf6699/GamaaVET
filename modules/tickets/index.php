@@ -44,7 +44,7 @@ require_once '../../includes/header.php';
 
 <div class="card">
   <div class="table-responsive">
-    <table class="table table-hover align-middle mb-0">
+    <table class="table js-datatable table-hover align-middle mb-0">
       <thead class="table-light">
         <tr>
           <th>#</th>

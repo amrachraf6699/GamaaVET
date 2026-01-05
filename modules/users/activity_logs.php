@@ -126,7 +126,7 @@ require_once '../../includes/header.php';
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-hover mb-0">
+                <table class="table js-datatable table-hover mb-0">
                     <thead class="table-light">
                         <tr>
                             <th scope="col">Timestamp</th>

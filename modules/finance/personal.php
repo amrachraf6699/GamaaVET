@@ -19,7 +19,7 @@ $result = $conn->query("SELECT id, name, email, role, personal_balance FROM user
 
 <div class="card">
     <div class="card-body">
-        <table class="table table-striped">
+        <table class="table js-datatable table-striped">
             <thead><tr><th>ID</th><th>Name</th><th>Email</th><th>Role</th><th>Balance</th></tr></thead>
             <tbody>
                 <?php while ($row=$result->fetch_assoc()): ?>

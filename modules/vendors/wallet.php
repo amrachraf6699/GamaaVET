@@ -134,7 +134,7 @@ $transactions_result = $transactions_stmt->get_result();
     </div>
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover">
+            <table class="table js-datatable table-hover">
                 <thead>
                     <tr>
                         <th>Date</th>

@@ -108,7 +108,7 @@ $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPri
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover" id="productsTable">
+            <table class="table js-datatable table-hover" id="productsTable">
                 <thead>
                     <tr>
                         <th>SKU</th>
