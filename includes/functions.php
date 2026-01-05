@@ -232,24 +232,38 @@ function hasPermission($permissionKey) {
     return in_array($permissionKey, $_SESSION['permissions'], true);
 }
 
+function hasExplicitPermission($permissionKey) {
+    if (!isLoggedIn()) return false;
+
+    if (!isset($_SESSION['role_slug']) || !isset($_SESSION['permissions'])) {
+        loadUserAccessToSession($_SESSION['user_id']);
+    }
+
+    if (!isset($_SESSION['permissions']) || !is_array($_SESSION['permissions'])) {
+        return false;
+    }
+
+    return in_array($permissionKey, $_SESSION['permissions'], true);
+}
+
 function canViewProductPrice($productType) {
     if ($productType === 'material') {
-        return hasPermission('products.material.price.view');
+        return hasExplicitPermission('products.material.price.view');
     }
     if ($productType === 'final') {
-        return hasPermission('products.final.price.view');
+        return hasExplicitPermission('products.final.price.view');
     }
-    return hasPermission('products.material.price.view') || hasPermission('products.final.price.view');
+    return hasExplicitPermission('products.material.price.view') || hasExplicitPermission('products.final.price.view');
 }
 
 function canViewProductCost($productType) {
     if ($productType === 'material') {
-        return hasPermission('products.material.cost.view');
+        return hasExplicitPermission('products.material.cost.view');
     }
     if ($productType === 'final') {
-        return hasPermission('products.final.cost.view');
+        return hasExplicitPermission('products.final.cost.view');
     }
-    return hasPermission('products.material.cost.view') || hasPermission('products.final.cost.view');
+    return hasExplicitPermission('products.material.cost.view') || hasExplicitPermission('products.final.cost.view');
 }
 
 // Notifications helpers

@@ -7,7 +7,14 @@ if (!hasPermission('products.view')) {
     redirect('../../dashboard.php');
 }
 
-$page_title = 'Products Management';
+$filterType = null;
+if (isset($_GET['type']) && in_array($_GET['type'], ['material', 'final'], true)) {
+    $filterType = $_GET['type'];
+}
+
+$page_title = $filterType === 'material'
+    ? 'Raw Materials'
+    : ($filterType === 'final' ? 'Final Products' : 'Products Management');
 require_once '../../includes/header.php';
 
 // Handle delete request
@@ -58,16 +65,36 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
 $sql = "SELECT p.*, c1.name as category_name, c2.name as subcategory_name 
         FROM products p 
         LEFT JOIN categories c1 ON p.category_id = c1.id 
-        LEFT JOIN categories c2 ON p.subcategory_id = c2.id 
-        ORDER BY p.name";
-$result = $conn->query($sql);
-$canViewAnyUnitPrice = hasPermission('products.final.price.view') || hasPermission('products.material.price.view');
-$canViewAnyCostPrice = hasPermission('products.final.cost.view') || hasPermission('products.material.cost.view');
+        LEFT JOIN categories c2 ON p.subcategory_id = c2.id";
+if ($filterType !== null) {
+    $sql .= " WHERE p.type = ?";
+}
+$sql .= " ORDER BY p.name";
+
+if ($filterType !== null) {
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $filterType);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    $result = $conn->query($sql);
+}
+
+$canViewAnyUnitPrice = hasExplicitPermission('products.final.price.view') || hasExplicitPermission('products.material.price.view');
+$canViewAnyCostPrice = hasExplicitPermission('products.final.cost.view') || hasExplicitPermission('products.material.cost.view');
 $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPrice ? 1 : 0);
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Products</h2>
+    <h2>
+        <?php if ($filterType === 'material'): ?>
+            Raw Materials
+        <?php elseif ($filterType === 'final'): ?>
+            Final Products
+        <?php else: ?>
+            Products
+        <?php endif; ?>
+    </h2>
     <div>
         <a href="upload.php" class="btn btn-info me-2">
             <i class="fas fa-upload"></i> Bulk Upload

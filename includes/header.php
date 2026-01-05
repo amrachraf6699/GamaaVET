@@ -146,6 +146,17 @@
                         <ul class="dropdown-menu">
                             <?php if (hasPermission('products.view')): ?>
                             <li>
+                                <a class="dropdown-item" href="<?= BASE_URL ?>modules/products/?type=final">
+                                    <i class="fas fa-box me-2"></i> Final Products
+                                </a>
+                            </li>
+                            <li>
+                                <a class="dropdown-item" href="<?= BASE_URL ?>modules/products/?type=material">
+                                    <i class="fas fa-layer-group me-2"></i> Raw Materials
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
                                 <a class="dropdown-item" href="<?= BASE_URL ?>modules/products/">
                                     <i class="fas fa-list me-2"></i> All Products
                                 </a>

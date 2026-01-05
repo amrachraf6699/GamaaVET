@@ -58,7 +58,7 @@ if (isset($_POST['login'])) {
 if (isset($_GET['logout'])) {
     logActivity("User logged out");
     session_destroy();
-    redirect('index.php');
+    redirect(defined('BASE_URL') ? BASE_URL . 'index.php' : 'index.php');
 }
 
 // Protect pages that require authentication
@@ -68,7 +68,7 @@ $current_page = basename($_SERVER['PHP_SELF']);
 if (in_array($current_page, $protected_pages) || strpos($_SERVER['REQUEST_URI'], 'modules/') !== false) {
     if (!isLoggedIn()) {
         setAlert('danger', 'Please login to access that page');
-        redirect('index.php');
+        redirect(defined('BASE_URL') ? BASE_URL . 'index.php' : 'index.php');
     }
 }
 ?>
