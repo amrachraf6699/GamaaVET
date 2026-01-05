@@ -2,7 +2,7 @@
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
-if (!hasPermission('tickets.manage') && !hasPermission('tickets.create')) {
+if (!hasPermission('tickets.manage') && !hasPermission('tickets.create') && !hasPermission('tickets.view')) {
     setAlert('danger', 'Access denied.');
     redirect('../../dashboard.php');
 }

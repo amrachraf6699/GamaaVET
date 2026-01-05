@@ -232,6 +232,26 @@ function hasPermission($permissionKey) {
     return in_array($permissionKey, $_SESSION['permissions'], true);
 }
 
+function canViewProductPrice($productType) {
+    if ($productType === 'material') {
+        return hasPermission('products.material.price.view');
+    }
+    if ($productType === 'final') {
+        return hasPermission('products.final.price.view');
+    }
+    return hasPermission('products.material.price.view') || hasPermission('products.final.price.view');
+}
+
+function canViewProductCost($productType) {
+    if ($productType === 'material') {
+        return hasPermission('products.material.cost.view');
+    }
+    if ($productType === 'final') {
+        return hasPermission('products.final.cost.view');
+    }
+    return hasPermission('products.material.cost.view') || hasPermission('products.final.cost.view');
+}
+
 // Notifications helpers
 function getUnreadNotificationsCount() {
     global $conn;

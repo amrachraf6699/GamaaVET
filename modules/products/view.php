@@ -79,14 +79,18 @@ include '../../includes/header.php';
                                             <th>Type</th>
                                             <td><?= ucfirst($product['type']) ?></td>
                                         </tr>
+                                        <?php if (canViewProductPrice($product['type'])): ?>
                                         <tr>
                                             <th>Unit Price</th>
                                             <td><?= formatCurrency($product['unit_price']) ?></td>
                                         </tr>
+                                        <?php endif; ?>
+                                        <?php if (canViewProductCost($product['type'])): ?>
                                         <tr>
                                             <th>Cost Price</th>
                                             <td><?= $product['cost_price'] ? formatCurrency($product['cost_price']) : 'N/A' ?></td>
                                         </tr>
+                                        <?php endif; ?>
                                         <tr>
                                             <th>Min Stock Level</th>
                                             <td><?= $product['min_stock_level'] ?? 'Not set' ?></td>

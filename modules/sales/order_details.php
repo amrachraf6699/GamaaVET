@@ -35,13 +35,14 @@ if (!$order) {
 
 // Fetch order items
 $stmt = $pdo->prepare("
-    SELECT oi.*, p.name AS product_name, p.sku, p.barcode
+    SELECT oi.*, p.name AS product_name, p.sku, p.barcode, p.type
     FROM order_items oi
     JOIN products p ON oi.product_id = p.id
     WHERE oi.order_id = ?
 ");
 $stmt->execute([$order_id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$canViewFinalPrices = canViewProductPrice('final');
 
 // Fetch payments
 $stmt = $pdo->prepare("
@@ -310,40 +311,56 @@ require_once '../../includes/header.php';
                                         <?php endif; ?>
                                     </td>
                                     <td><?= $item['quantity'] ?></td>
-                                    <td><?= number_format($item['unit_price'], 2) ?></td>
-                                    <td><?= number_format($item['total_price'], 2) ?></td>
+                                    <td>
+                                        <?php if (canViewProductPrice($item['type'])): ?>
+                                            <?= number_format($item['unit_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (canViewProductPrice($item['type'])): ?>
+                                            <?= number_format($item['total_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                         <tfoot>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Items Subtotal:</strong></td>
-                                <td><?= number_format($itemsSubtotal, 2) ?></td>
+                                <td><?= $canViewFinalPrices ? number_format($itemsSubtotal, 2) : '<span class="text-muted">Hidden</span>' ?></td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Discount:</strong></td>
-                                <td class="text-danger">-<?= number_format($discountAmount, 2) ?></td>
+                                <td class="text-danger"><?= $canViewFinalPrices ? '-' . number_format($discountAmount, 2) : '<span class="text-muted">Hidden</span>' ?></td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Shipping:</strong></td>
                                 <td>
-                                    <?= $order['shipping_cost_type'] === 'manual'
-                                        ? number_format($shippingAmount, 2) . ' (Manual)'
-                                        : '0.00 (No Shipping)' ?>
+                                    <?php if ($canViewFinalPrices): ?>
+                                        <?= $order['shipping_cost_type'] === 'manual'
+                                            ? number_format($shippingAmount, 2) . ' (Manual)'
+                                            : '0.00 (No Shipping)' ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">Hidden</span>
+                                    <?php endif; ?>
                                 </td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Total:</strong></td>
-                                <td><?= number_format($order['total_amount'], 2) ?></td>
+                                <td><?= $canViewFinalPrices ? number_format($order['total_amount'], 2) : '<span class="text-muted">Hidden</span>' ?></td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Paid Amount:</strong></td>
-                                <td><?= number_format($order['paid_amount'], 2) ?></td>
+                                <td><?= $canViewFinalPrices ? number_format($order['paid_amount'], 2) : '<span class="text-muted">Hidden</span>' ?></td>
                             </tr>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Balance:</strong></td>
                                 <td class="<?= $balance > 0 ? 'text-danger' : 'text-success' ?>">
-                                    <?= number_format($balance, 2) ?>
+                                    <?= $canViewFinalPrices ? number_format($balance, 2) : '<span class="text-muted">Hidden</span>' ?>
                                 </td>
                             </tr>
                         </tfoot>

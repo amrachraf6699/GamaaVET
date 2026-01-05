@@ -31,13 +31,14 @@ if (!$quotation) {
 
 // Fetch quotation items
 $stmt = $pdo->prepare("
-    SELECT qi.*, p.name AS product_name, p.sku, p.barcode
+    SELECT qi.*, p.name AS product_name, p.sku, p.barcode, p.type
     FROM quotation_items qi
     JOIN products p ON qi.product_id = p.id
     WHERE qi.quotation_id = ?
 ");
 $stmt->execute([$quotation_id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$canViewFinalPrices = canViewProductPrice('final');
 
 // Handle conversion to order
 if ($_SERVER['REQUEST_METHOD'] == 'POST') {
@@ -141,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                     <p><strong>Quotation Date:</strong> <?= date('M d, Y', strtotime($quotation['quotation_date'])) ?></p>
                 </div>
                 <div class="col-md-6">
-                    <p><strong>Total Amount:</strong> <?= number_format($quotation['total_amount'], 2) ?></p>
+                    <p><strong>Total Amount:</strong> <?= $canViewFinalPrices ? number_format($quotation['total_amount'], 2) : '<span class="text-muted">Hidden</span>' ?></p>
                     <p><strong>Expiry Date:</strong> <?= date('M d, Y', strtotime($quotation['expiry_date'])) ?></p>
                 </div>
             </div>
@@ -163,8 +164,20 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
                                 <tr>
                                     <td><?= htmlspecialchars($item['product_name']) ?></td>
                                     <td><?= $item['quantity'] ?></td>
-                                    <td><?= number_format($item['unit_price'], 2) ?></td>
-                                    <td><?= number_format($item['total_price'], 2) ?></td>
+                                    <td>
+                                        <?php if (canViewProductPrice($item['type'])): ?>
+                                            <?= number_format($item['unit_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (canViewProductPrice($item['type'])): ?>
+                                            <?= number_format($item['total_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>

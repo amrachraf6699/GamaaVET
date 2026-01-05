@@ -281,12 +281,12 @@
             <ul class="navbar-nav ms-auto">
                 <?php if (isLoggedIn()): ?>
     <?php $notifCount = function_exists('getUnreadNotificationsCount') ? getUnreadNotificationsCount() : 0; ?>
-    <?php if ($notifCount > 0 && hasPermission('notifications.view')): ?>
-        <li class="nav-item me-2">
+    <?php if (hasPermission('notifications.view')): ?>
+        <li class="nav-item me-2" id="notifBell" style="<?= $notifCount > 0 ? '' : 'display: none;' ?>">
             <a class="nav-link position-relative" href="<?= BASE_URL ?>modules/notifications/index.php">
                 <i class="fas fa-bell"></i>
-                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger">
-                    <?= $notifCount ?>
+                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="notifBadge">
+                    <?= (int)$notifCount ?>
                 </span>
             </a>
         </li>
@@ -330,9 +330,19 @@
 <script>
 (function(){
   let last = parseInt(localStorage.getItem('notif_last_count')||'0',10);
+  const bell = document.getElementById('notifBell');
+  const badge = document.getElementById('notifBadge');
   function check(){
     fetch('<?= BASE_URL ?>modules/notifications/unread_count.php').then(r=>r.json()).then(d=>{
       const c = parseInt((d&&d.count)||0,10);
+      if (bell && badge) {
+        if (c > 0) {
+          bell.style.display = '';
+          badge.textContent = String(c);
+        } else {
+          bell.style.display = 'none';
+        }
+      }
       if (c>last){
         try { document.getElementById('notifSound').play().catch(()=>{}); } catch(e){}
         const t = new bootstrap.Toast(document.getElementById('notifToast')); t.show();

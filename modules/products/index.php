@@ -61,6 +61,9 @@ $sql = "SELECT p.*, c1.name as category_name, c2.name as subcategory_name
         LEFT JOIN categories c2 ON p.subcategory_id = c2.id 
         ORDER BY p.name";
 $result = $conn->query($sql);
+$canViewAnyUnitPrice = hasPermission('products.final.price.view') || hasPermission('products.material.price.view');
+$canViewAnyCostPrice = hasPermission('products.final.cost.view') || hasPermission('products.material.cost.view');
+$productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPrice ? 1 : 0);
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -86,8 +89,12 @@ $result = $conn->query($sql);
                         <th>Type</th>
                         <th>Category</th>
                         <th>Subcategory</th>
+                        <?php if ($canViewAnyUnitPrice): ?>
                         <th>Unit Price</th>
+                        <?php endif; ?>
+                        <?php if ($canViewAnyCostPrice): ?>
                         <th>Cost Price</th>
+                        <?php endif; ?>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -104,8 +111,24 @@ $result = $conn->query($sql);
                                 </td>
                                 <td><?php echo htmlspecialchars($row['category_name']); ?></td>
                                 <td><?php echo $row['subcategory_name'] ? htmlspecialchars($row['subcategory_name']) : '-'; ?></td>
-                                <td><?php echo number_format($row['unit_price'], 2); ?></td>
-                                <td><?php echo $row['cost_price'] ? number_format($row['cost_price'], 2) : '-'; ?></td>
+                                <?php if ($canViewAnyUnitPrice): ?>
+                                <td>
+                                    <?php if (canViewProductPrice($row['type'])): ?>
+                                        <?php echo number_format($row['unit_price'], 2); ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">Hidden</span>
+                                    <?php endif; ?>
+                                </td>
+                                <?php endif; ?>
+                                <?php if ($canViewAnyCostPrice): ?>
+                                <td>
+                                    <?php if (canViewProductCost($row['type'])): ?>
+                                        <?php echo $row['cost_price'] ? number_format($row['cost_price'], 2) : '-'; ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">Hidden</span>
+                                    <?php endif; ?>
+                                </td>
+                                <?php endif; ?>
                                 <td>
                                     <a href="view.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i> View
@@ -118,8 +141,8 @@ $result = $conn->query($sql);
                                         data-type="<?php echo htmlspecialchars($row['type']); ?>"
                                         data-category="<?php echo $row['category_id'] ?? ''; ?>"
                                         data-subcategory="<?php echo $row['subcategory_id'] ?? ''; ?>"
-                                        data-unit_price="<?php echo $row['unit_price']; ?>"
-                                        data-cost_price="<?php echo $row['cost_price'] ?? ''; ?>"
+                                        data-unit_price="<?php echo canViewProductPrice($row['type']) ? $row['unit_price'] : ''; ?>"
+                                        data-cost_price="<?php echo canViewProductCost($row['type']) ? ($row['cost_price'] ?? '') : ''; ?>"
                                         data-min_stock="<?php echo $row['min_stock_level'] ?? 0; ?>"
                                         data-description="<?php echo htmlspecialchars($row['description'] ?? ''); ?>">
                                         <i class="fas fa-edit"></i> Edit
@@ -134,7 +157,7 @@ $result = $conn->query($sql);
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center">No products found</td>
+                            <td colspan="<?php echo $productsTableColspan; ?>" class="text-center">No products found</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

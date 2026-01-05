@@ -34,13 +34,14 @@ if (!$quotation) {
 
 // Fetch quotation items
 $stmt = $pdo->prepare("
-    SELECT qi.*, p.name AS product_name, p.sku, p.barcode
+    SELECT qi.*, p.name AS product_name, p.sku, p.barcode, p.type
     FROM quotation_items qi
     JOIN products p ON qi.product_id = p.id
     WHERE qi.quotation_id = ?
 ");
 $stmt->execute([$quotation_id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$canViewFinalPrices = canViewProductPrice('final');
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
@@ -124,15 +125,27 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                                     <td><?= htmlspecialchars($item['sku']) ?></td>
                                     <td><?= htmlspecialchars($item['product_name']) ?></td>
                                     <td><?= $item['quantity'] ?></td>
-                                    <td><?= number_format($item['unit_price'], 2) ?></td>
-                                    <td><?= number_format($item['total_price'], 2) ?></td>
+                                    <td>
+                                        <?php if (canViewProductPrice($item['type'])): ?>
+                                            <?= number_format($item['unit_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (canViewProductPrice($item['type'])): ?>
+                                            <?= number_format($item['total_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                         <tfoot>
                             <tr>
                                 <td colspan="4" class="text-end"><strong>Total:</strong></td>
-                                <td><?= number_format($quotation['total_amount'], 2) ?></td>
+                                <td><?= $canViewFinalPrices ? number_format($quotation['total_amount'], 2) : '<span class="text-muted">Hidden</span>' ?></td>
                             </tr>
                         </tfoot>
                     </table>
