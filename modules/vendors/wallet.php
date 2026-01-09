@@ -31,12 +31,42 @@ if ($vendor_result->num_rows === 0) {
 $vendor = $vendor_result->fetch_assoc();
 $vendor_stmt->close();
 
+$walletUploadDir = __DIR__ . '/../../assets/uploads/vendor_wallet';
+
 // Handle wallet transactions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $amount = sanitize($_POST['amount']);
     $type = sanitize($_POST['type']);
     $notes = sanitize($_POST['notes']);
     $user_id = $_SESSION['user_id'];
+
+    $attachmentPath = null;
+    $attachmentOriginal = null;
+
+    if (!empty($_FILES['attachment']['name'])) {
+        if (!is_dir($walletUploadDir)) {
+            mkdir($walletUploadDir, 0775, true);
+        }
+        $allowedExt = ['jpg','jpeg','png','gif','webp'];
+        $originalName = $_FILES['attachment']['name'];
+        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+        if (!in_array($ext, $allowedExt, true)) {
+            setAlert('danger', 'Unsupported attachment type. Allowed: JPG, PNG, GIF, WEBP.');
+            redirect("wallet.php?id=$vendor_id");
+        }
+        if ($_FILES['attachment']['size'] > 5 * 1024 * 1024) {
+            setAlert('danger', 'Attachment exceeds the 5MB limit.');
+            redirect("wallet.php?id=$vendor_id");
+        }
+        $newFile = 'wallet_' . $vendor_id . '_' . uniqid('', true) . '.' . $ext;
+        $destination = $walletUploadDir . '/' . $newFile;
+        if (!move_uploaded_file($_FILES['attachment']['tmp_name'], $destination)) {
+            setAlert('danger', 'Failed to upload attachment.');
+            redirect("wallet.php?id=$vendor_id");
+        }
+        $attachmentPath = 'assets/uploads/vendor_wallet/' . $newFile;
+        $attachmentOriginal = $originalName;
+    }
     
     // Start transaction
     $conn->begin_transaction();
@@ -44,10 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Insert wallet transaction
         $transaction_sql = "INSERT INTO vendor_wallet_transactions 
-                           (vendor_id, amount, type, notes, created_by) 
-                           VALUES (?, ?, ?, ?, ?)";
+                           (vendor_id, amount, type, notes, attachment_path, attachment_original_name, created_by) 
+                           VALUES (?, ?, ?, ?, ?, ?, ?)";
         $transaction_stmt = $conn->prepare($transaction_sql);
-        $transaction_stmt->bind_param("idssi", $vendor_id, $amount, $type, $notes, $user_id);
+        $transaction_stmt->bind_param("idssssi", $vendor_id, $amount, $type, $notes, $attachmentPath, $attachmentOriginal, $user_id);
         $transaction_stmt->execute();
         $transaction_id = $transaction_stmt->insert_id;
         $transaction_stmt->close();
@@ -103,15 +133,16 @@ $transactions_result = $transactions_stmt->get_result();
                 <h5 class="card-title mb-0">Wallet Transaction</h5>
             </div>
             <div class="card-body">
-                <form action="wallet.php?id=<?php echo $vendor_id; ?>" method="POST">
+                <form action="wallet.php?id=<?php echo $vendor_id; ?>" method="POST" enctype="multipart/form-data">
                     <div class="mb-3">
                         <label for="type" class="form-label">Transaction Type*</label>
                         <select class="form-select" id="type" name="type" required>
-                            <option value="deposit">Deposit</option>
-                            <option value="withdrawal">Withdrawal</option>
-                            <option value="payment">Payment</option>
-                            <option value="refund">Refund</option>
+                            <option value="deposit" data-description="Increase vendor balance (e.g. advance or adjustment)">Deposit - Increase balance</option>
+                            <option value="withdrawal" data-description="Decrease balance by taking funds out">Withdrawal - Decrease balance</option>
+                            <option value="payment" data-description="Record a payment issued to the vendor">Payment - Pay vendor</option>
+                            <option value="refund" data-description="Vendor returned money / credit note">Refund - Vendor refund</option>
                         </select>
+                        <small id="typeHelp" class="text-muted d-block mt-1">Deposit - Increase balance</small>
                     </div>
                     <div class="mb-3">
                         <label for="amount" class="form-label">Amount*</label>
@@ -120,6 +151,11 @@ $transactions_result = $transactions_stmt->get_result();
                     <div class="mb-3">
                         <label for="notes" class="form-label">Notes</label>
                         <textarea class="form-control" id="notes" name="notes" rows="2"></textarea>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Attachment (Optional)</label>
+                        <input type="file" class="form-control" name="attachment" accept="image/*">
+                        <small class="text-muted">Attach payment receipt / screenshot (JPG, PNG, GIF, WEBP, max 5MB).</small>
                     </div>
                     <button type="submit" class="btn btn-primary">Process Transaction</button>
                 </form>
@@ -141,6 +177,7 @@ $transactions_result = $transactions_stmt->get_result();
                         <th>Type</th>
                         <th>Amount</th>
                         <th>Notes</th>
+                        <th>Attachment</th>
                         <th>Processed By</th>
                     </tr>
                 </thead>
@@ -156,6 +193,15 @@ $transactions_result = $transactions_stmt->get_result();
                                 </td>
                                 <td><?php echo number_format($transaction['amount'], 2); ?></td>
                                 <td><?php echo $transaction['notes'] ? htmlspecialchars($transaction['notes']) : '-'; ?></td>
+                                <td>
+                                    <?php if (!empty($transaction['attachment_path'])): ?>
+                                        <a class="btn btn-sm btn-outline-secondary" href="../../<?php echo htmlspecialchars($transaction['attachment_path']); ?>" target="_blank">
+                                            <i class="fas fa-paperclip"></i> View
+                                        </a>
+                                    <?php else: ?>
+                                        -
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo $transaction['created_by_name'] ? htmlspecialchars($transaction['created_by_name']) : 'System'; ?></td>
                             </tr>
                         <?php endwhile; ?>
@@ -169,5 +215,19 @@ $transactions_result = $transactions_stmt->get_result();
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const typeSelect = document.getElementById('type');
+    const help = document.getElementById('typeHelp');
+    if (!typeSelect || !help) return;
+    const updateHelp = () => {
+        const option = typeSelect.selectedOptions[0];
+        help.textContent = option ? option.dataset.description : '';
+    };
+    typeSelect.addEventListener('change', updateHelp);
+    updateHelp();
+});
+</script>
 
 <?php require_once '../../includes/footer.php'; ?>

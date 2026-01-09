@@ -25,9 +25,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Address info
     $address_line1 = sanitize($_POST['address_line1']);
     $address_line2 = !empty($_POST['address_line2']) ? sanitize($_POST['address_line2']) : NULL;
-    $city = sanitize($_POST['city']);
-    $state = sanitize($_POST['state']);
-    $postal_code = sanitize($_POST['postal_code']);
+    $city = !empty($_POST['city']) ? sanitize($_POST['city']) : NULL;
+    $state = !empty($_POST['state']) ? sanitize($_POST['state']) : NULL;
+    $postal_code = !empty($_POST['postal_code']) ? sanitize($_POST['postal_code']) : NULL;
     $country = sanitize($_POST['country']);
     $is_default_address = isset($_POST['is_default_address']) ? 1 : 0;
     

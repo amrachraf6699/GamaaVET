@@ -55,11 +55,11 @@ $itemsSubtotal = array_reduce($items, function ($carry, $item) {
 }, 0);
 $shippingAmount = $order['shipping_cost_type'] === 'manual' ? (float)$order['shipping_cost'] : 0;
 $discountBasisMap = [
-    'none' => 'No Discount (لا يوجد)',
-    'product_quantity' => 'Product Count (عدد منتجات)',
-    'cash' => 'Cash Discount (خصم فلوس)',
-    'free_sample' => 'Free Samples (عينات مجانية)',
-    'mixed' => 'Mixed (مزيج)'
+    'none' => 'No Discount',
+    'product_quantity' => 'By Quantity',
+    'cash' => 'Cash Discount',
+    'free_sample' => 'Free Samples',
+    'mixed' => 'Mixed'
 ];
 $discountBasisLabel = $discountBasisMap[$order['discount_basis']] ?? ucwords(str_replace('-', ' ', $order['discount_basis']));
 $shippingLabel = $order['shipping_cost_type'] === 'manual' ? 'Manual' : 'No Shipping';
@@ -81,6 +81,7 @@ $pdf->SetSubject($viewMode === 'statement' ? 'Order Statement' : 'Order Invoice'
 $pdf->SetMargins(15, 15, 15);
 $pdf->SetHeaderMargin(10);
 $pdf->SetFooterMargin(10);
+$primaryFont = 'aealarabiya';
 
 if ($viewMode === 'statement') {
     $pdf->setRTL(true);
@@ -119,9 +120,9 @@ if ($viewMode === 'statement') {
 $pdf->AddPage();
 
 // Company information
-$pdf->SetFont('helvetica', 'B', 12);
+$pdf->SetFont($primaryFont, 'B', 12);
 $pdf->Cell(0, 0, 'Your Company Name', 0, 1);
-$pdf->SetFont('helvetica', '', 10);
+$pdf->SetFont($primaryFont, '', 10);
 $pdf->Cell(0, 5, '123 Business Street', 0, 1);
 $pdf->Cell(0, 5, 'City, State, ZIP', 0, 1);
 $pdf->Cell(0, 5, 'Phone: (123) 456-7890', 0, 1);
@@ -129,13 +130,13 @@ $pdf->Cell(0, 5, 'Email: info@yourcompany.com', 0, 1);
 $pdf->Cell(0, 5, 'Tax ID: 123456789', 0, 1);
 
 // Invoice title
-$pdf->SetFont('helvetica', 'B', 16);
+$pdf->SetFont($primaryFont, 'B', 16);
 $pdf->Ln(10);
 $pdf->Cell(0, 10, 'INVOICE', 0, 1, 'C');
 $pdf->Ln(5);
 
 // Invoice details
-$pdf->SetFont('helvetica', '', 10);
+$pdf->SetFont($primaryFont, '', 10);
 $pdf->Cell(50, 5, 'Invoice Number:', 0, 0);
 $pdf->Cell(0, 5, $order['internal_id'], 0, 1);
 $pdf->Cell(50, 5, 'Invoice Date:', 0, 0);
@@ -153,14 +154,14 @@ $pdf->Cell(0, 5, $order['factory_name'] ? $order['factory_name'] : 'Not assigned
 $pdf->Ln(5);
 
 // Items table
-$pdf->SetFont('helvetica', 'B', 10);
+$pdf->SetFont($primaryFont, 'B', 10);
 $pdf->Cell(15, 7, '#', 1, 0, 'C');
 $pdf->Cell(75, 7, 'Product', 1, 0);
 $pdf->Cell(20, 7, 'Qty', 1, 0, 'C');
 $pdf->Cell(30, 7, 'Unit Price', 1, 0, 'R');
 $pdf->Cell(30, 7, 'Total', 1, 1, 'R');
 
-$pdf->SetFont('helvetica', '', 10);
+$pdf->SetFont($primaryFont, '', 10);
 $counter = 1;
 foreach ($items as $item) {
     $pdf->Cell(15, 7, $counter++, 1, 0, 'C');
@@ -174,25 +175,34 @@ foreach ($items as $item) {
     $pdf->Cell(30, 7, number_format($item['total_price'], 2), 1, 1, 'R');
 }
 
-$pdf->Ln(6);
-$pdf->SetFont('helvetica', 'B', 10);
-$pdf->Cell(0, 6, 'Discount Details', 0, 1);
-$pdf->SetFont('helvetica', '', 10);
-$pdf->Cell(50, 6, 'Discount %:', 0, 0);
-$pdf->Cell(0, 6, number_format($order['discount_percentage'], 2) . '%', 0, 1);
-$pdf->Cell(50, 6, 'Discount Type:', 0, 0);
-$pdf->Cell(0, 6, $discountBasisLabel, 0, 1);
-$pdf->Cell(50, 6, 'Discount Amount:', 0, 0);
-$pdf->Cell(0, 6, number_format($order['discount_amount'], 2), 0, 1);
-$pdf->Cell(50, 6, 'Discounted Products:', 0, 0);
-$pdf->Cell(0, 6, (int)$order['discount_product_count'], 0, 1);
-$pdf->Cell(50, 6, 'Free Samples:', 0, 0);
-$pdf->Cell(0, 6, $freeSampleCount, 0, 1);
+$hasDiscountSection = (float)$order['discount_amount'] > 0
+    || (float)$order['discount_percentage'] > 0
+    || (int)$order['discount_product_count'] > 0
+    || $freeSampleCount > 0;
+
+if ($hasDiscountSection) {
+    $pdf->Ln(6);
+    $pdf->SetFont($primaryFont, 'B', 10);
+    $pdf->Cell(0, 6, 'Discount Details', 0, 1);
+    $pdf->SetFont($primaryFont, '', 10);
+    $pdf->Cell(50, 6, 'Discount %:', 0, 0);
+    $pdf->Cell(0, 6, number_format($order['discount_percentage'], 2) . '%', 0, 1);
+    $pdf->Cell(50, 6, 'Discount Type:', 0, 0);
+    $pdf->Cell(0, 6, $discountBasisLabel, 0, 1);
+    $pdf->Cell(50, 6, 'Discount Amount:', 0, 0);
+    $pdf->Cell(0, 6, number_format($order['discount_amount'], 2), 0, 1);
+    $pdf->Cell(50, 6, 'Discounted Products:', 0, 0);
+    $pdf->Cell(0, 6, (int)$order['discount_product_count'], 0, 1);
+    $pdf->Cell(50, 6, 'Free Samples:', 0, 0);
+    $pdf->Cell(0, 6, $freeSampleCount, 0, 1);
+}
+
+$pdf->SetFont($primaryFont, '', 10);
 $pdf->Cell(50, 6, 'Shipping:', 0, 0);
 $pdf->Cell(0, 6, $shippingLabel . ' - ' . number_format($shippingAmount, 2), 0, 1);
 
 // Summary
-$pdf->SetFont('helvetica', 'B', 10);
+$pdf->SetFont($primaryFont, 'B', 10);
 $pdf->Cell(140, 7, 'Items Subtotal:', 1, 0, 'R');
 $pdf->Cell(30, 7, number_format($itemsSubtotal, 2), 1, 1, 'R');
 $pdf->Cell(140, 7, 'Discount Amount:', 1, 0, 'R');
@@ -210,13 +220,13 @@ $pdf->Cell(30, 7, number_format($balance, 2), 1, 1, 'R');
 
 if (!empty($returns)) {
     $pdf->Ln(8);
-    $pdf->SetFont('helvetica', 'B', 11);
+    $pdf->SetFont($primaryFont, 'B', 11);
     $pdf->Cell(0, 7, 'Return Details', 0, 1);
-    $pdf->SetFont('helvetica', 'B', 10);
+    $pdf->SetFont($primaryFont, 'B', 10);
     $pdf->Cell(80, 7, 'Product', 1, 0);
     $pdf->Cell(25, 7, 'Qty', 1, 0, 'C');
     $pdf->Cell(65, 7, 'Reason', 1, 1);
-    $pdf->SetFont('helvetica', '', 10);
+    $pdf->SetFont($primaryFont, '', 10);
     foreach ($returns as $return) {
         $pdf->Cell(80, 7, $return['product_name'], 1, 0);
         $pdf->Cell(25, 7, $return['returned_quantity'], 1, 0, 'C');
@@ -227,12 +237,12 @@ if (!empty($returns)) {
 
 // Notes
 $pdf->Ln(10);
-$pdf->SetFont('helvetica', 'I', 9);
+$pdf->SetFont($primaryFont, 'I', 9);
 $pdf->MultiCell(0, 5, 'Notes: ' . $order['notes']);
 
 // Footer
 $pdf->SetY(-30);
-$pdf->SetFont('helvetica', 'I', 8);
+$pdf->SetFont($primaryFont, 'I', 8);
 $pdf->Cell(0, 5, 'Generated by ' . $order['created_by_name'] . ' on ' . date('Y-m-d H:i:s'), 0, 1);
 $pdf->Cell(0, 5, 'Thank you for your business!', 0, 1, 'C');
 

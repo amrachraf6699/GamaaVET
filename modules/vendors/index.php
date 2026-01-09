@@ -250,16 +250,16 @@ $result = $conn->query($sql);
                             </div>
                             <div class="row">
                                 <div class="col-md-4 mb-3">
-                                    <label for="city" class="form-label">City*</label>
-                                    <input type="text" class="form-control" id="city" name="city" required>
+                                    <label for="city" class="form-label">City (optional)</label>
+                                    <input type="text" class="form-control" id="city" name="city">
                                 </div>
                                 <div class="col-md-4 mb-3">
-                                    <label for="state" class="form-label">State/Province*</label>
-                                    <input type="text" class="form-control" id="state" name="state" required>
+                                    <label for="state" class="form-label">State/Province (optional)</label>
+                                    <input type="text" class="form-control" id="state" name="state">
                                 </div>
                                 <div class="col-md-4 mb-3">
-                                    <label for="postal_code" class="form-label">Postal Code*</label>
-                                    <input type="text" class="form-control" id="postal_code" name="postal_code" required>
+                                    <label for="postal_code" class="form-label">Postal Code (optional)</label>
+                                    <input type="text" class="form-control" id="postal_code" name="postal_code">
                                 </div>
                             </div>
                             <div class="mb-3">

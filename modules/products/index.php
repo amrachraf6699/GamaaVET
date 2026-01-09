@@ -170,7 +170,7 @@ $result = $conn->query($sql);
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="type" class="form-label">Product Type</label>
-                            <select class="form-select" id="type" name="type" required>
+                            <select class="form-select js-product-type" id="type" name="type" required>
                                 <option value="">-- Select Type --</option>
                                 <option value="primary">Primary Product</option>
                                 <option value="final">Final Product</option>
@@ -199,13 +199,13 @@ $result = $conn->query($sql);
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 mb-3" data-pricing-group="unit">
                             <label for="unit_price" class="form-label">Unit Price</label>
-                            <input type="number" class="form-control" id="unit_price" name="unit_price" min="0" step="0.01" required>
+                            <input type="number" class="form-control" id="unit_price" name="unit_price" min="0" step="0.01" data-role="unit-price">
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 mb-3" data-pricing-group="cost">
                             <label for="cost_price" class="form-label">Cost Price</label>
-                            <input type="number" class="form-control" id="cost_price" name="cost_price" min="0" step="0.01">
+                            <input type="number" class="form-control" id="cost_price" name="cost_price" min="0" step="0.01" data-role="cost-price">
                         </div>
                     </div>
                     <div class="row">
@@ -260,7 +260,7 @@ $result = $conn->query($sql);
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="edit_type" class="form-label">Product Type</label>
-                            <select class="form-select" id="edit_type" name="type" required>
+                            <select class="form-select js-product-type" id="edit_type" name="type" required>
                                 <option value="primary">Primary Product</option>
                                 <option value="final">Final Product</option>
                                 <option value="material">Material</option>
@@ -288,13 +288,13 @@ $result = $conn->query($sql);
                         </div>
                     </div>
                     <div class="row">
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 mb-3" data-pricing-group="unit">
                             <label for="edit_unit_price" class="form-label">Unit Price</label>
-                            <input type="number" class="form-control" id="edit_unit_price" name="unit_price" min="0" step="0.01" required>
+                            <input type="number" class="form-control" id="edit_unit_price" name="unit_price" min="0" step="0.01" data-role="unit-price">
                         </div>
-                        <div class="col-md-6 mb-3">
+                        <div class="col-md-6 mb-3" data-pricing-group="cost">
                             <label for="edit_cost_price" class="form-label">Cost Price</label>
-                            <input type="number" class="form-control" id="edit_cost_price" name="cost_price" min="0" step="0.01">
+                            <input type="number" class="form-control" id="edit_cost_price" name="cost_price" min="0" step="0.01" data-role="cost-price">
                         </div>
                     </div>
                     <div class="row">
@@ -325,7 +325,42 @@ $result = $conn->query($sql);
 <?php require_once '../../includes/footer.php'; ?>
 
 <script>
+    const toggleProductPricingGroups = (selectEl) => {
+        const type = selectEl.value;
+        const form = selectEl.closest('form');
+        if (!form) return;
+        const showUnit = type !== 'material';
+        const showCost = type !== 'final';
+        const unitGroup = form.querySelector('[data-pricing-group="unit"]');
+        const costGroup = form.querySelector('[data-pricing-group="cost"]');
+        const unitInput = form.querySelector('[data-role="unit-price"]');
+        const costInput = form.querySelector('[data-role="cost-price"]');
+        if (unitGroup) unitGroup.classList.toggle('d-none', !showUnit);
+        if (costGroup) costGroup.classList.toggle('d-none', !showCost);
+        if (unitInput) unitInput.required = showUnit;
+        if (costInput) costInput.required = showCost;
+    };
+
+    const initProductPricingControls = () => {
+        document.querySelectorAll('.js-product-type').forEach(select => {
+            toggleProductPricingGroups(select);
+            select.addEventListener('change', function () {
+                toggleProductPricingGroups(this);
+            });
+        });
+    };
+
     $(document).ready(function() {
+        if ($.fn.DataTable && $('#productsTable').length) {
+            $('#productsTable').DataTable({
+                order: [],
+                pageLength: 25,
+                lengthMenu: [10, 25, 50, 100]
+            });
+        }
+
+        initProductPricingControls();
+
         // Load subcategories when category changes
         $('#category_id').change(function() {
             var category_id = $(this).val();
@@ -374,6 +409,11 @@ $result = $conn->query($sql);
             $('#edit_cost_price').val(cost_price);
             $('#edit_min_stock_level').val(min_stock);
             $('#edit_description').val(description);
+
+            const editTypeField = document.getElementById('edit_type');
+            if (editTypeField) {
+                toggleProductPricingGroups(editTypeField);
+            }
 
             setTimeout(function() {
                 $('#edit_subcategory_id').val(subcategory);

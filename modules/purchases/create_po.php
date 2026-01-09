@@ -19,8 +19,8 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
         $stmt = $pdo->prepare("
             INSERT INTO purchase_orders (
                 vendor_id, contact_id, order_date, status, 
-                total_amount, paid_amount, notes, created_by
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                total_amount, paid_amount, notes, warehouse_location, created_by
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
 
         $total_amount = array_sum(array_map(function ($item) {
@@ -35,6 +35,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST') {
             $total_amount,
             0.00,
             $_POST['notes'],
+            $_POST['warehouse_location'] ?? null,
             $_SESSION['user_id']
         ]);
 
@@ -102,15 +103,15 @@ $order_date = date('Y-m-d');
         <div class="card mb-4">
             <div class="card-header">Purchase Order Information</div>
             <div class="card-body">
-                <div class="row">
-                    <div class="col-md-4">
+                <div class="row g-3">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label for="order_date" class="form-label">Order Date</label>
                             <input type="date" class="form-control" id="order_date" name="order_date"
                                 value="<?= $order_date ?>" required>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label for="vendor_id" class="form-label">Vendor</label>
                             <select class="form-select" id="vendor_id" name="vendor_id" required>
@@ -121,12 +122,19 @@ $order_date = date('Y-m-d');
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <div class="mb-3">
                             <label for="contact_id" class="form-label">Contact Person</label>
                             <select class="form-select" id="contact_id" name="contact_id" required disabled>
                                 <option value="">Select Vendor First</option>
                             </select>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="mb-3">
+                            <label for="warehouse_location" class="form-label">Warehouse Destination</label>
+                            <input type="text" class="form-control" id="warehouse_location" name="warehouse_location" placeholder="e.g. Warehouse A / Dock 4">
+                            <small class="text-muted">Where this PO should be delivered.</small>
                         </div>
                     </div>
                 </div>
@@ -145,7 +153,10 @@ $order_date = date('Y-m-d');
         <div class="card mb-4">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <span>Purchase Order Items</span>
-                <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">Add Item</button>
+                <div class="d-flex gap-2 flex-wrap">
+                    <input type="text" class="form-control form-control-sm" id="productSearch" placeholder="Search products..." aria-label="Search products">
+                    <button type="button" class="btn btn-sm btn-primary" id="addItemBtn">Add Item</button>
+                </div>
             </div>
             <div class="card-body">
                 <table class="table" id="itemsTable">
@@ -249,9 +260,29 @@ $order_date = date('Y-m-d');
             }
         });
 
-        // Add item button
+        const productModalEl = document.getElementById('productModal');
+        const productModal = new bootstrap.Modal(productModalEl);
+        const productRows = Array.from(document.querySelectorAll('#productsTable tbody tr'));
+        const productSearch = document.getElementById('productSearch');
+
+        const filterProducts = () => {
+            const term = (productSearch.value || '').toLowerCase();
+            productRows.forEach(row => {
+                const content = row.textContent.toLowerCase();
+                row.style.display = content.includes(term) ? '' : 'none';
+            });
+        };
+
+        if (productSearch) {
+            productSearch.addEventListener('input', filterProducts);
+        }
+
         $('#addItemBtn').click(function() {
-            $('#productModal').modal('show');
+            if (productSearch) {
+                productSearch.value = '';
+                filterProducts();
+            }
+            productModal.show();
         });
 
         // Product selection
@@ -290,11 +321,11 @@ $order_date = date('Y-m-d');
                     </td>
                 </tr>
             `;
-                $('#itemsTable tbody').append(newRow);
-            }
+            $('#itemsTable tbody').append(newRow);
+        }
 
-            updatePOTotal();
-            $('#productModal').modal('hide');
+        updatePOTotal();
+        productModal.hide();
         });
 
         // Remove item

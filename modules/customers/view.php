@@ -178,7 +178,7 @@ $orders_result = $orders_stmt->get_result();
                                             </span>
                                         </td>
                                         <td>
-                                            <a href="../sales/orders/view.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-outline-primary">
+                                            <a href="../sales/order_details.php?id=<?php echo $order['id']; ?>" class="btn btn-sm btn-outline-primary">
                                                 <i class="fas fa-eye"></i> View
                                             </a>
                                         </td>

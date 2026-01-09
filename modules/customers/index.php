@@ -100,9 +100,12 @@ if ($factories_result) {
 
 <div class="d-flex justify-content-between align-items-center mb-4">
     <h2>Customers</h2>
-    <div class="d-flex gap-2">
+    <div class="d-flex gap-2 flex-wrap">
         <a href="factories.php" class="btn btn-outline-secondary">
             <i class="fas fa-industry"></i> Manage Factories
+        </a>
+        <a href="sample_customers.csv" class="btn btn-outline-info" download>
+            <i class="fas fa-file-csv"></i> Sample CSV
         </a>
         <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addCustomerModal">
             <i class="fas fa-plus"></i> Add Customer
@@ -183,7 +186,7 @@ if ($factories_result) {
 <div class="modal fade" id="addCustomerModal" tabindex="-1" aria-labelledby="addCustomerModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
-            <form action="create.php" method="POST">
+            <form action="create.php" method="POST" enctype="multipart/form-data">
                 <div class="modal-header">
                     <h5 class="modal-title" id="addCustomerModalLabel">Add New Customer</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
@@ -198,6 +201,9 @@ if ($factories_result) {
                         </li>
                         <li class="nav-item" role="presentation">
                             <button class="nav-link" id="address-tab" data-bs-toggle="tab" data-bs-target="#address" type="button">Address</button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="documents-tab" data-bs-toggle="tab" data-bs-target="#documents" type="button">Documents</button>
                         </li>
                     </ul>
                     <div class="tab-content p-3 border border-top-0 rounded-bottom" id="customerTabsContent">
@@ -312,6 +318,20 @@ if ($factories_result) {
                                 <input class="form-check-input" type="checkbox" id="is_default_address" name="is_default_address" checked>
                                 <label class="form-check-label" for="is_default_address">Set as default address</label>
                             </div>
+                        </div>
+                        <div class="tab-pane fade" id="documents" role="tabpanel">
+                            <div class="row">
+                                <div class="col-md-6 mb-3">
+                                    <label for="tax_document" class="form-label">Tax Registration Scan (PDF/Image)</label>
+                                    <input type="file" class="form-control" id="tax_document" name="tax_document" accept=".pdf,.jpg,.jpeg,.png">
+                                    <small class="text-muted">Optional upload; links to the tax number field.</small>
+                                </div>
+                                <div class="col-md-6 mb-3">
+                                    <label for="commercial_document" class="form-label">Commercial Registration Scan</label>
+                                    <input type="file" class="form-control" id="commercial_document" name="commercial_document" accept=".pdf,.jpg,.jpeg,.png">
+                                </div>
+                            </div>
+                            <p class="text-muted mb-0">Files are stored securely under customer documents for later reference.</p>
                         </div>
                     </div>
                 </div>

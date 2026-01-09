@@ -31,6 +31,11 @@ if ($product['type'] == 'final') {
     $components = getProductComponents($product_id);
 }
 
+$normalizedDescription = $product['description'] ?? '';
+if (!empty($normalizedDescription)) {
+    $normalizedDescription = str_replace(["\\r\\n", "\\n", "\\r"], "\n", $normalizedDescription);
+}
+
 // Set page title
 $pageTitle = "View Product: " . htmlspecialchars($product['name']);
 
@@ -97,7 +102,7 @@ include '../../includes/header.php';
                         </div>
                         <div class="col-md-6">
                             <h6>Description</h6>
-                            <p><?= $product['description'] ? nl2br(htmlspecialchars($product['description'])) : 'No description provided.' ?></p>
+                            <p><?= $normalizedDescription ? nl2br(htmlspecialchars($normalizedDescription)) : 'No description provided.' ?></p>
                             
                             <?php if ($product['type'] == 'final' && !empty($components)): ?>
                             <h6 class="mt-4">Product Components</h6>

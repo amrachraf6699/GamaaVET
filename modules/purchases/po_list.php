@@ -133,7 +133,14 @@ $vendors = $pdo->query("SELECT id, name FROM vendors ORDER BY name")->fetchAll(P
                             ];
                         ?>
                             <tr>
-                                <td>PO-<?= $po['id'] ?></td>
+                                <td>
+                                    <button type="button"
+                                            class="btn btn-link p-0 text-decoration-none js-po-preview"
+                                            data-po-id="<?= (int)$po['id'] ?>"
+                                            title="Quick view PO">
+                                        PO-<?= $po['id'] ?> <i class="fas fa-caret-down ms-1"></i>
+                                    </button>
+                                </td>
                                 <td><?= htmlspecialchars($po['vendor_name']) ?></td>
                                 <td><?= date('M d, Y', strtotime($po['order_date'])) ?></td>
                                 <td><?= number_format($po['total_amount'], 2) ?></td>
@@ -163,5 +170,117 @@ $vendors = $pdo->query("SELECT id, name FROM vendors ORDER BY name")->fetchAll(P
         </div>
     </div>
 </div>
+
+<!-- Quick view modal -->
+<div class="modal fade" id="poPreviewModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg modal-dialog-scrollable">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">PO Preview</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="text-center py-3 text-muted">Select a PO to preview its details.</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const modalElement = document.getElementById('poPreviewModal');
+    if (!modalElement || typeof bootstrap === 'undefined' || !bootstrap.Modal) return;
+
+    const modalBody = modalElement.querySelector('.modal-body');
+    const modalInstance = new bootstrap.Modal(modalElement);
+    const spinner = `
+        <div class="d-flex justify-content-center py-4">
+            <div class="spinner-border text-primary" role="status">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+        </div>`;
+
+    const escapeHtml = (unsafe = '') => String(unsafe)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+
+    const formatRow = (items) => {
+        if (!Array.isArray(items) || !items.length) {
+            return '<tr><td colspan="5" class="text-center text-muted">No items found</td></tr>';
+        }
+        return items.map(function (item, idx) {
+            return `
+                <tr>
+                    <td>${idx + 1}</td>
+                    <td>${escapeHtml(item.product_name)}</td>
+                    <td class="text-center">${item.quantity}</td>
+                    <td class="text-end">${item.unit_price}</td>
+                    <td class="text-end">${item.total_price}</td>
+                </tr>`;
+        }).join('');
+    };
+
+    document.querySelectorAll('.js-po-preview').forEach(button => {
+        button.addEventListener('click', function () {
+            const poId = this.dataset.poId;
+            if (!poId) return;
+            modalBody.innerHTML = spinner;
+            modalInstance.show();
+
+            fetch('<?= BASE_URL ?>ajax/get_po_summary.php?id=' + encodeURIComponent(poId))
+                .then(resp => resp.json())
+                .then(data => {
+                    if (!data.success) {
+                        modalBody.innerHTML = `<div class="alert alert-danger mb-0">${escapeHtml(data.message || 'Unable to load PO details.')}</div>`;
+                        return;
+                    }
+                    const order = data.order;
+                    modalBody.innerHTML = `
+                        <div class="mb-3">
+                            <h5 class="mb-1">${escapeHtml(order.label)} <span class="badge bg-secondary">${escapeHtml(order.status_label)}</span></h5>
+                            <div class="small text-muted">Created on ${escapeHtml(order.order_date)} by ${escapeHtml(order.created_by || 'System')}</div>
+                        </div>
+                        <div class="row g-3 mb-3">
+                            <div class="col-md-6">
+                                <h6 class="text-uppercase text-muted small mb-1">Vendor</h6>
+                                <p class="mb-0">${escapeHtml(order.vendor_name)}</p>
+                                <small class="text-muted">${escapeHtml(order.contact_name || 'No contact')} (${escapeHtml(order.contact_phone || 'N/A')})</small>
+                            </div>
+                            <div class="col-md-6">
+                                <h6 class="text-uppercase text-muted small mb-1">Totals</h6>
+                                <p class="mb-0"><strong>Total:</strong> ${order.total_amount}</p>
+                                <small class="text-muted">Paid: ${order.paid_amount} | Balance: ${order.balance}</small>
+                            </div>
+                        </div>
+                        <div class="table-responsive mb-3">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>#</th>
+                                        <th>Product</th>
+                                        <th class="text-center">Qty</th>
+                                        <th class="text-end">Unit Cost</th>
+                                        <th class="text-end">Line Total</th>
+                                    </tr>
+                                </thead>
+                                <tbody>${formatRow(data.items)}</tbody>
+                            </table>
+                        </div>
+                        <div class="border-top pt-3">
+                            <div class="mb-2"><strong>Notes:</strong> ${order.notes ? escapeHtml(order.notes) : '<span class="text-muted">No notes</span>'}</div>
+                            <a href="po_details.php?id=${order.id}" class="btn btn-sm btn-primary">Open Full PO</a>
+                        </div>
+                    `;
+                })
+                .catch(() => {
+                    modalBody.innerHTML = '<div class="alert alert-danger mb-0">Unable to load PO details.</div>';
+                });
+        });
+    });
+});
+</script>
 
 <?php require_once '../../includes/footer.php'; ?>

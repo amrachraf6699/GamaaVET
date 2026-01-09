@@ -151,7 +151,13 @@ $discountBasisMap = [
 $discountBasisLabel = $discountBasisMap[$order['discount_basis']] ?? ucwords(str_replace('-', ' ', $order['discount_basis']));
 
 // Handle status update
+$canUpdateOrderStatus = hasPermission('sales.orders.update_status');
+
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
+    if (!$canUpdateOrderStatus) {
+        setAlert('danger', "You don't have permission to update the order status.");
+        redirect('order_details.php?id=' . $order_id);
+    }
     $new_status = $_POST['status'];
 
     try {
@@ -458,7 +464,7 @@ require_once '../../includes/header.php';
                     <h5>Order Notes</h5>
                     <p><?= nl2br(htmlspecialchars($order['notes'] ?? 'No notes available')) ?></p>
                     
-                    <?php if (in_array($_SESSION['user_role'], ['admin', 'salesman'])) : ?>
+                    <?php if ($canUpdateOrderStatus) : ?>
                         <hr>
                         <h5>Update Status</h5>
                         <form method="post">

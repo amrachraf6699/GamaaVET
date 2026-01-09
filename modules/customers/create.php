@@ -7,6 +7,8 @@ if (!hasPermission('customers.create')) {
     redirect('../../dashboard.php');
 }
 
+$customerUploadsDir = __DIR__ . '/../../assets/uploads/customers';
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Customer basic info
     $name = sanitize($_POST['name']);
@@ -84,6 +86,66 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $wallet_stmt->bind_param("idi", $customer_id, $wallet_balance, $_SESSION['user_id']);
             $wallet_stmt->execute();
             $wallet_stmt->close();
+        }
+
+        // Handle optional document uploads
+        $allowedDocExt = ['pdf', 'jpg', 'jpeg', 'png'];
+        if (!is_dir($customerUploadsDir)) {
+            mkdir($customerUploadsDir, 0775, true);
+        }
+        $taxDocumentPath = null;
+        $commercialDocumentPath = null;
+
+        $documentConfig = [
+            'tax_document' => [
+                'type' => 'tax_registration',
+                'number' => $tax_number ?: 'N/A'
+            ],
+            'commercial_document' => [
+                'type' => 'commercial_registration',
+                'number' => 'N/A'
+            ]
+        ];
+        foreach ($documentConfig as $field => $meta) {
+            if (!isset($_FILES[$field]) || $_FILES[$field]['error'] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            if ($_FILES[$field]['error'] !== UPLOAD_ERR_OK) {
+                throw new Exception('Failed to upload document: ' . $field);
+            }
+            $ext = strtolower(pathinfo($_FILES[$field]['name'], PATHINFO_EXTENSION));
+            if (!in_array($ext, $allowedDocExt, true)) {
+                throw new Exception('Unsupported file type for ' . $field . '. Allowed: PDF/JPG/PNG.');
+            }
+            if ($_FILES[$field]['size'] > 5 * 1024 * 1024) {
+                throw new Exception('Document ' . $field . ' exceeds the 5MB limit.');
+            }
+            $fileName = sprintf('customer_%d_%s_%s.%s', $customer_id, $meta['type'], uniqid(), $ext);
+            $destination = $customerUploadsDir . DIRECTORY_SEPARATOR . $fileName;
+            if (!move_uploaded_file($_FILES[$field]['tmp_name'], $destination)) {
+                throw new Exception('Unable to save uploaded file for ' . $field . '.');
+            }
+
+            $filePathDb = 'assets/uploads/customers/' . $fileName;
+
+            if ($field === 'tax_document') {
+                $taxDocumentPath = $filePathDb;
+            } elseif ($field === 'commercial_document') {
+                $commercialDocumentPath = $filePathDb;
+            }
+
+            $docStmt = $conn->prepare("INSERT INTO customer_documents (customer_id, document_type, document_number, file_path) VALUES (?, ?, ?, ?)");
+            $docNumber = $meta['number'] ?: 'N/A';
+            $docStmt->bind_param("isss", $customer_id, $meta['type'], $docNumber, $filePathDb);
+            $docStmt->execute();
+            $docStmt->close();
+        }
+
+        if ($taxDocumentPath !== null || $commercialDocumentPath !== null) {
+            $docUpdateStmt = $conn->prepare("UPDATE customers SET tax_document_path = ?, commercial_document_path = ? WHERE id = ?");
+            $docUpdateStmt->bind_param("ssi", $taxDocumentPath, $commercialDocumentPath, $customer_id);
+            $docUpdateStmt->execute();
+            $docUpdateStmt->close();
         }
         
         // Commit transaction

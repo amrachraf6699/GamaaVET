@@ -10,6 +10,8 @@ if (!hasPermission('purchases.view')) {
     exit();
 }
 
+$canUpdatePOStatus = hasPermission('purchases.update_status');
+
 // Get PO ID
 $po_id = $_GET['id'] ?? 0;
 
@@ -55,6 +57,10 @@ $payments = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Handle status update
 if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
+    if (!$canUpdatePOStatus) {
+        setAlert('danger', "You don't have permission to update PO status.");
+        redirect('po_details.php?id=' . $po_id);
+    }
     $new_status = $_POST['status'];
     
     try {
@@ -194,7 +200,7 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                     <h5>Order Notes</h5>
                     <p><?= nl2br(htmlspecialchars($po['notes'] ?? 'No notes available')) ?></p>
                     
-                    <?php if (in_array($_SESSION['user_role'], ['admin', 'accountant'])) : ?>
+                    <?php if ($canUpdatePOStatus) : ?>
                         <hr>
                         <h5>Update Status</h5>
                         <form method="post">

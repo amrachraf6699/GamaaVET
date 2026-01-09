@@ -11,11 +11,18 @@ global $conn;
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 if ($id <= 0) redirect('index.php');
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && hasPermission('tickets.manage')) {
+$ticket = $conn->query("SELECT t.*, r.name AS assigned_role FROM tickets t LEFT JOIN roles r ON r.id=t.assigned_to_role_id WHERE t.id=".$id)->fetch_assoc();
+if (!$ticket) redirect('index.php');
+
+$roles = $conn->query("SELECT id, name, slug FROM roles WHERE is_active=1 ORDER BY name")->fetch_all(MYSQLI_ASSOC);
+$canManageTickets = hasPermission('tickets.manage');
+$canUpdateTicketStatus = $canManageTickets || hasPermission('tickets.update_status');
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $canUpdateTicketStatus) {
     $status = $_POST['status'] ?? 'open';
     $priority = $_POST['priority'] ?? 'medium';
-    $assignRole = !empty($_POST['assigned_to_role_id']) ? (int)$_POST['assigned_to_role_id'] : null;
-    $assignUser = !empty($_POST['assigned_to_user_id']) ? (int)$_POST['assigned_to_user_id'] : null;
+    $assignRole = $canManageTickets ? (!empty($_POST['assigned_to_role_id']) ? (int)$_POST['assigned_to_role_id'] : null) : ($ticket['assigned_to_role_id'] ?? null);
+    $assignUser = $canManageTickets ? (!empty($_POST['assigned_to_user_id']) ? (int)$_POST['assigned_to_user_id'] : null) : ($ticket['assigned_to_user_id'] ?? null);
     $stmt = $conn->prepare("UPDATE tickets SET status=?, priority=?, assigned_to_role_id=?, assigned_to_user_id=? WHERE id=?");
     $stmt->bind_param('ssiii', $status, $priority, $assignRole, $assignUser, $id);
     $stmt->execute();
@@ -24,9 +31,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && hasPermission('tickets.manage')) {
     redirect('view.php?id=' . $id);
 }
 
-$ticket = $conn->query("SELECT t.*, r.name AS assigned_role FROM tickets t LEFT JOIN roles r ON r.id=t.assigned_to_role_id WHERE t.id=".$id)->fetch_assoc();
-if (!$ticket) redirect('index.php');
-$roles = $conn->query("SELECT id, name, slug FROM roles WHERE is_active=1 ORDER BY name")->fetch_all(MYSQLI_ASSOC);
+$attachmentStmt = $conn->prepare("SELECT id, file_path, original_name, created_at FROM ticket_attachments WHERE ticket_id = ? ORDER BY created_at ASC");
+$attachmentStmt->bind_param('i', $id);
+$attachmentStmt->execute();
+$attachments = $attachmentStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+$attachmentStmt->close();
 
 $page_title = 'Ticket #' . $id;
 require_once '../../includes/header.php';
@@ -45,44 +54,63 @@ require_once '../../includes/header.php';
           <h5 class="mb-2"><?= htmlspecialchars($ticket['title']) ?></h5>
           <div class="text-muted small mb-3">Created: <?= formatDateTime($ticket['created_at']) ?></div>
           <p class="mb-0"><?= nl2br(htmlspecialchars($ticket['description'])) ?></p>
+          <?php if (!empty($attachments)): ?>
+            <div class="mt-4">
+              <h6>Attachments</h6>
+              <div class="d-flex flex-wrap gap-2">
+                <?php foreach ($attachments as $attachment): ?>
+                  <a class="btn btn-outline-secondary btn-sm" href="../../<?= htmlspecialchars($attachment['file_path']) ?>" target="_blank" rel="noopener">
+                    <i class="fas fa-paperclip me-1"></i><?= htmlspecialchars($attachment['original_name'] ?: 'Attachment') ?>
+                  </a>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          <?php endif; ?>
         </div>
         <div class="col-md-4">
-          <form method="post" class="vstack gap-2">
-            <div>
-              <label class="form-label">Status</label>
-              <select name="status" class="form-select">
-                <?php foreach (['open','in_progress','resolved','closed'] as $st): ?>
-                  <option value="<?= $st ?>" <?= $ticket['status']===$st?'selected':'' ?>><?= ucfirst($st) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">Priority</label>
-              <select name="priority" class="form-select">
-                <?php foreach (['low','medium','high','urgent'] as $p): ?>
-                  <option value="<?= $p ?>" <?= $ticket['priority']===$p?'selected':'' ?>><?= ucfirst($p) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">Assign to Role</label>
-              <select name="assigned_to_role_id" class="form-select">
-                <option value="">—</option>
-                <?php foreach ($roles as $r): ?>
-                  <option value="<?= (int)$r['id'] ?>" <?= ((int)$ticket['assigned_to_role_id']===(int)$r['id'])?'selected':'' ?>><?= htmlspecialchars($r['name']) ?> (<?= htmlspecialchars($r['slug']) ?>)</option>
-                <?php endforeach; ?>
-              </select>
-            </div>
-            <div>
-              <label class="form-label">Assign to User (optional)</label>
-              <input type="number" name="assigned_to_user_id" class="form-control" value="<?= (int)($ticket['assigned_to_user_id'] ?? 0) ?: '' ?>">
-            </div>
-            <?php if (hasPermission('tickets.manage')): ?>
+          <?php if ($canUpdateTicketStatus): ?>
+            <form method="post" class="vstack gap-2">
+              <div>
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                  <?php foreach (['open','in_progress','resolved','closed'] as $st): ?>
+                    <option value="<?= $st ?>" <?= $ticket['status']===$st?'selected':'' ?>><?= ucfirst($st) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Priority</label>
+                <select name="priority" class="form-select">
+                  <?php foreach (['low','medium','high','urgent'] as $p): ?>
+                    <option value="<?= $p ?>" <?= $ticket['priority']===$p?'selected':'' ?>><?= ucfirst($p) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </div>
+              <div>
+                <label class="form-label">Assign to Role</label>
+                <select name="assigned_to_role_id" class="form-select" <?= $canManageTickets ? '' : 'disabled' ?>>
+                  <option value="">??"</option>
+                  <?php foreach ($roles as $r): ?>
+                    <option value="<?= (int)$r['id'] ?>" <?= ((int)$ticket['assigned_to_role_id']===(int)$r['id'])?'selected':'' ?>><?= htmlspecialchars($r['name']) ?> (<?= htmlspecialchars($r['slug']) ?>)</option>
+                  <?php endforeach; ?>
+                </select>
+                <?php if (!$canManageTickets): ?>
+                  <small class="text-muted">Only admins can reassign tickets.</small>
+                <?php endif; ?>
+              </div>
+              <div>
+                <label class="form-label">Assign to User (optional)</label>
+                <input type="number" name="assigned_to_user_id" class="form-control" value="<?= (int)($ticket['assigned_to_user_id'] ?? 0) ?: '' ?>" <?= $canManageTickets ? '' : 'disabled' ?>>
+              </div>
               <div class="pt-2">
                 <button class="btn btn-primary" type="submit">Save</button>
               </div>
-            <?php endif; ?>
-          </form>
+            </form>
+          <?php else: ?>
+            <div class="alert alert-info mb-0">
+              You can view ticket details but do not have permission to update the status.
+            </div>
+          <?php endif; ?>
         </div>
       </div>
     </div>
@@ -90,4 +118,3 @@ require_once '../../includes/header.php';
 </div>
 
 <?php require_once '../../includes/footer.php'; ?>
-
