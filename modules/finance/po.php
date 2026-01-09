@@ -23,7 +23,7 @@ $result = $conn->query($sql);
 
 <div class="card">
     <div class="card-body">
-        <table class="table table-hover">
+        <table class="table js-datatable table-hover">
             <thead><tr><th>ID</th><th>Vendor</th><th>Date</th><th>Total</th><th>Paid</th><th>Status</th><th>Payment</th></tr></thead>
             <tbody>
                 <?php while ($row=$result->fetch_assoc()): ?>

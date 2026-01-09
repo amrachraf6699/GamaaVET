@@ -2,7 +2,10 @@
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 header('Content-Type: application/json');
-if (!isLoggedIn()) { echo json_encode([]); exit; }
+if (!isLoggedIn() || (!hasPermission('tickets.manage') && !hasPermission('tickets.create') && !hasPermission('tickets.view'))) {
+  echo json_encode([]);
+  exit;
+}
 global $conn; if (!isset($_SESSION['role_id'])) loadUserAccessToSession($_SESSION['user_id']);
 $roleId = $_SESSION['role_id'] ?? null; $userId = $_SESSION['user_id'];
 if ($roleId === null) { echo json_encode([]); exit; }

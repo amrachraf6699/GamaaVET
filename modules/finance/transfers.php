@@ -76,7 +76,7 @@ $accountOptions = [
 
 <div class="card">
     <div class="card-body">
-        <table class="table table-bordered">
+        <table class="table js-datatable table-bordered">
             <thead><tr><th>ID</th><th>From</th><th>To</th><th>Amount</th><th>Notes</th><th>By</th><th>Date</th></tr></thead>
             <tbody>
                 <?php while($row=$result->fetch_assoc()): ?>

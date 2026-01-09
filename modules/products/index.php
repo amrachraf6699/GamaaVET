@@ -7,7 +7,14 @@ if (!hasPermission('products.view')) {
     redirect('../../dashboard.php');
 }
 
-$page_title = 'Products Management';
+$filterType = null;
+if (isset($_GET['type']) && in_array($_GET['type'], ['material', 'final'], true)) {
+    $filterType = $_GET['type'];
+}
+
+$page_title = $filterType === 'material'
+    ? 'Raw Materials'
+    : ($filterType === 'final' ? 'Final Products' : 'Products Management');
 require_once '../../includes/header.php';
 
 // Handle delete request
@@ -58,13 +65,36 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
 $sql = "SELECT p.*, c1.name as category_name, c2.name as subcategory_name 
         FROM products p 
         LEFT JOIN categories c1 ON p.category_id = c1.id 
-        LEFT JOIN categories c2 ON p.subcategory_id = c2.id 
-        ORDER BY p.name";
-$result = $conn->query($sql);
+        LEFT JOIN categories c2 ON p.subcategory_id = c2.id";
+if ($filterType !== null) {
+    $sql .= " WHERE p.type = ?";
+}
+$sql .= " ORDER BY p.name";
+
+if ($filterType !== null) {
+    $stmt = $conn->prepare($sql);
+    $stmt->bind_param("s", $filterType);
+    $stmt->execute();
+    $result = $stmt->get_result();
+} else {
+    $result = $conn->query($sql);
+}
+
+$canViewAnyUnitPrice = hasExplicitPermission('products.final.price.view') || hasExplicitPermission('products.material.price.view');
+$canViewAnyCostPrice = hasExplicitPermission('products.final.cost.view') || hasExplicitPermission('products.material.cost.view');
+$productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPrice ? 1 : 0);
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
-    <h2>Products</h2>
+    <h2>
+        <?php if ($filterType === 'material'): ?>
+            Raw Materials
+        <?php elseif ($filterType === 'final'): ?>
+            Final Products
+        <?php else: ?>
+            Products
+        <?php endif; ?>
+    </h2>
     <div>
         <a href="upload.php" class="btn btn-info me-2">
             <i class="fas fa-upload"></i> Bulk Upload
@@ -78,7 +108,7 @@ $result = $conn->query($sql);
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table table-hover" id="productsTable">
+            <table class="table js-datatable table-hover" id="productsTable">
                 <thead>
                     <tr>
                         <th>SKU</th>
@@ -86,8 +116,12 @@ $result = $conn->query($sql);
                         <th>Type</th>
                         <th>Category</th>
                         <th>Subcategory</th>
+                        <?php if ($canViewAnyUnitPrice): ?>
                         <th>Unit Price</th>
+                        <?php endif; ?>
+                        <?php if ($canViewAnyCostPrice): ?>
                         <th>Cost Price</th>
+                        <?php endif; ?>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -104,8 +138,24 @@ $result = $conn->query($sql);
                                 </td>
                                 <td><?php echo htmlspecialchars($row['category_name']); ?></td>
                                 <td><?php echo $row['subcategory_name'] ? htmlspecialchars($row['subcategory_name']) : '-'; ?></td>
-                                <td><?php echo number_format($row['unit_price'], 2); ?></td>
-                                <td><?php echo $row['cost_price'] ? number_format($row['cost_price'], 2) : '-'; ?></td>
+                                <?php if ($canViewAnyUnitPrice): ?>
+                                <td>
+                                    <?php if (canViewProductPrice($row['type'])): ?>
+                                        <?php echo number_format($row['unit_price'], 2); ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">Hidden</span>
+                                    <?php endif; ?>
+                                </td>
+                                <?php endif; ?>
+                                <?php if ($canViewAnyCostPrice): ?>
+                                <td>
+                                    <?php if (canViewProductCost($row['type'])): ?>
+                                        <?php echo $row['cost_price'] ? number_format($row['cost_price'], 2) : '-'; ?>
+                                    <?php else: ?>
+                                        <span class="text-muted">Hidden</span>
+                                    <?php endif; ?>
+                                </td>
+                                <?php endif; ?>
                                 <td>
                                     <a href="view.php?id=<?php echo $row['id']; ?>" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-eye"></i> View
@@ -118,8 +168,8 @@ $result = $conn->query($sql);
                                         data-type="<?php echo htmlspecialchars($row['type']); ?>"
                                         data-category="<?php echo $row['category_id'] ?? ''; ?>"
                                         data-subcategory="<?php echo $row['subcategory_id'] ?? ''; ?>"
-                                        data-unit_price="<?php echo $row['unit_price']; ?>"
-                                        data-cost_price="<?php echo $row['cost_price'] ?? ''; ?>"
+                                        data-unit_price="<?php echo canViewProductPrice($row['type']) ? $row['unit_price'] : ''; ?>"
+                                        data-cost_price="<?php echo canViewProductCost($row['type']) ? ($row['cost_price'] ?? '') : ''; ?>"
                                         data-min_stock="<?php echo $row['min_stock_level'] ?? 0; ?>"
                                         data-description="<?php echo htmlspecialchars($row['description'] ?? ''); ?>">
                                         <i class="fas fa-edit"></i> Edit
@@ -134,7 +184,7 @@ $result = $conn->query($sql);
                         <?php endwhile; ?>
                     <?php else: ?>
                         <tr>
-                            <td colspan="8" class="text-center">No products found</td>
+                            <td colspan="<?php echo $productsTableColspan; ?>" class="text-center">No products found</td>
                         </tr>
                     <?php endif; ?>
                 </tbody>

@@ -28,6 +28,7 @@ $order = $stmt->fetch(PDO::FETCH_ASSOC);
 if (!$order) {
     die("Order not found");
 }
+$canViewInvoiceContactPhone = hasExplicitPermission('sales.invoice.contact_phone.view');
 
 // Fetch order items
 $stmt = $pdo->prepare("
@@ -148,7 +149,11 @@ $pdf->Cell(0, 5, $order['tax_number'], 0, 1);
 $pdf->Cell(50, 5, 'Address:', 0, 0);
 $pdf->MultiCell(0, 5, $order['address'], 0, 1);
 $pdf->Cell(50, 5, 'Contact:', 0, 0);
-$pdf->Cell(0, 5, $order['contact_name'] . ' (' . $order['contact_phone'] . ')', 0, 1);
+$contactLine = $order['contact_name'];
+if ($canViewInvoiceContactPhone && !empty($order['contact_phone'])) {
+    $contactLine .= ' (' . $order['contact_phone'] . ')';
+}
+$pdf->Cell(0, 5, $contactLine, 0, 1);
 $pdf->Cell(50, 5, 'Factory:', 0, 0);
 $pdf->Cell(0, 5, $order['factory_name'] ? $order['factory_name'] : 'Not assigned', 0, 1);
 $pdf->Ln(5);

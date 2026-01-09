@@ -108,7 +108,7 @@ $stmt->close();
             </div>
         </div>
         <div class="card-body">
-            <table class="table table-striped table-hover">
+            <table class="table js-datatable table-striped table-hover">
                 <thead>
                     <tr>
                         <th>Order ID</th>

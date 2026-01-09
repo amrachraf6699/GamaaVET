@@ -25,7 +25,7 @@ require_once '../../includes/header.php';
 
 <div class="card">
   <div class="card-body table-responsive">
-    <table class="table table-hover">
+    <table class="table js-datatable table-hover">
       <thead>
         <tr>
           <th>Name</th>

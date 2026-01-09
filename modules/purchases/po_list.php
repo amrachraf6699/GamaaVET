@@ -108,7 +108,7 @@ $vendors = $pdo->query("SELECT id, name FROM vendors ORDER BY name")->fetchAll(P
             </form>
             
             <div class="table-responsive">
-                <table class="table table-striped table-hover">
+                <table class="table js-datatable table-striped table-hover">
                     <thead>
                         <tr>
                             <th>PO #</th>

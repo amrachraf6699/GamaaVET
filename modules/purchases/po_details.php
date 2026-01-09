@@ -36,13 +36,14 @@ if (!$po) {
 
 // Fetch PO items
 $stmt = $pdo->prepare("
-    SELECT poi.*, p.name AS product_name, p.sku, p.barcode
+    SELECT poi.*, p.name AS product_name, p.sku, p.barcode, p.type
     FROM purchase_order_items poi
     JOIN products p ON poi.product_id = p.id
     WHERE poi.purchase_order_id = ?
 ");
 $stmt->execute([$po_id]);
 $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+$canViewMaterialCosts = canViewProductCost('material');
 
 // Fetch payments
 $stmt = $pdo->prepare("
@@ -142,24 +143,36 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
                                     <td><?= htmlspecialchars($item['product_name']) ?></td>
                                     <td><?= $item['quantity'] ?></td>
                                     <td><?= $item['received_quantity'] ?? 0 ?></td>
-                                    <td><?= number_format($item['unit_price'], 2) ?></td>
-                                    <td><?= number_format($item['total_price'], 2) ?></td>
+                                    <td>
+                                        <?php if (canViewProductCost($item['type'])): ?>
+                                            <?= number_format($item['unit_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td>
+                                        <?php if (canViewProductCost($item['type'])): ?>
+                                            <?= number_format($item['total_price'], 2) ?>
+                                        <?php else: ?>
+                                            <span class="text-muted">Hidden</span>
+                                        <?php endif; ?>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
                         <tfoot>
                             <tr>
                                 <td colspan="5" class="text-end"><strong>Subtotal:</strong></td>
-                                <td><?= number_format($po['total_amount'], 2) ?></td>
+                                <td><?= $canViewMaterialCosts ? number_format($po['total_amount'], 2) : '<span class="text-muted">Hidden</span>' ?></td>
                             </tr>
                             <tr>
                                 <td colspan="5" class="text-end"><strong>Paid Amount:</strong></td>
-                                <td><?= number_format($po['paid_amount'], 2) ?></td>
+                                <td><?= $canViewMaterialCosts ? number_format($po['paid_amount'], 2) : '<span class="text-muted">Hidden</span>' ?></td>
                             </tr>
                             <tr>
                                 <td colspan="5" class="text-end"><strong>Balance:</strong></td>
                                 <td class="<?= ($po['total_amount'] - $po['paid_amount']) > 0 ? 'text-danger' : 'text-success' ?>">
-                                    <?= number_format($po['total_amount'] - $po['paid_amount'], 2) ?>
+                                    <?= $canViewMaterialCosts ? number_format($po['total_amount'] - $po['paid_amount'], 2) : '<span class="text-muted">Hidden</span>' ?>
                                 </td>
                             </tr>
                         </tfoot>
