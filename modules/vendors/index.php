@@ -99,7 +99,7 @@ $result = $conn->query($sql);
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table js-datatable table-hover" id="vendorsTable">
+            <table class="table table-hover" id="vendorsTable">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -352,12 +352,17 @@ $result = $conn->query($sql);
 <script>
 $(document).ready(function() {
     // Initialize DataTable
-    $('#vendorsTable').DataTable({
-        responsive: true,
-        columnDefs: [
-            { orderable: false, targets: [6] } // Disable sorting on actions column
-        ]
-    });
+    if ($.fn.DataTable && !$.fn.DataTable.isDataTable('#vendorsTable')) {
+        $('#vendorsTable').DataTable({
+            responsive: true,
+            pageLength: 25,
+            lengthMenu: [10, 25, 50, 100],
+            order: [],
+            columnDefs: [
+                { orderable: false, targets: [6] } // Disable sorting on actions column
+            ]
+        });
+    }
     
     // Handle edit button click
     $('.edit-vendor').on('click', function(e) {

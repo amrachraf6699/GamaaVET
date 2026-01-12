@@ -116,7 +116,7 @@ if ($factories_result) {
 <div class="card">
     <div class="card-body h-100 d-flex flex-column" style="min-height:400px;">
         <div class="table-responsive flex-grow-1">
-            <table class="table js-datatable table-hover mb-0" id="customersTable">
+            <table class="table table-hover mb-0" id="customersTable">
                 <thead>
                     <tr>
                         <th>ID</th>
@@ -430,12 +430,17 @@ if ($factories_result) {
 <script>
 $(document).ready(function() {
     // Initialize DataTable
-    $('#customersTable').DataTable({
-        responsive: true,
-        columnDefs: [
-            { orderable: false, targets: [7] } // Disable sorting on actions column
-        ]
-    });
+    if ($.fn.DataTable && !$.fn.DataTable.isDataTable('#customersTable')) {
+        $('#customersTable').DataTable({
+            responsive: true,
+            pageLength: 25,
+            lengthMenu: [10, 25, 50, 100],
+            order: [],
+            columnDefs: [
+                { orderable: false, targets: [7] } // Disable sorting on actions column
+            ]
+        });
+    }
     
     // Handle edit button click
     $('.edit-customer').click(function(e) {

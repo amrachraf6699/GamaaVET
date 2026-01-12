@@ -108,7 +108,7 @@ $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPri
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
-            <table class="table js-datatable table-hover" id="productsTable">
+            <table class="table table-hover" id="productsTable">
                 <thead>
                     <tr>
                         <th>SKU</th>
@@ -401,7 +401,7 @@ $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPri
     };
 
     $(document).ready(function() {
-        if ($.fn.DataTable && $('#productsTable').length) {
+        if ($.fn.DataTable && $('#productsTable').length && !$.fn.DataTable.isDataTable('#productsTable')) {
             $('#productsTable').DataTable({
                 order: [],
                 pageLength: 25,
