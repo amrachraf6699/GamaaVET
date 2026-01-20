@@ -226,13 +226,19 @@
                                             </a>
                                         </li>
                                     <?php endif; ?>
-                                </ul>
-                            </li>
-                        <?php endif; ?>
+                        </ul>
+                    </li>
+                <?php endif; ?>
 
-                        <!-- Users -->
-                        <?php if (hasPermission('users.manage')): ?>
-                            <li class="nav-item">
+                        <li class="nav-item">
+                            <a class="nav-link" href="<?= BASE_URL ?>modules/manufacturing/">
+                                <i class="fas fa-industry me-1"></i> Manufacturing
+                            </a>
+                        </li>
+
+                    <!-- Users -->
+                    <?php if (hasPermission('users.manage')): ?>
+                        <li class="nav-item">
                                 <a class="nav-link" href="<?= BASE_URL ?>modules/users/">
                                     <i class="fas fa-users me-1"></i> Users
                                 </a>

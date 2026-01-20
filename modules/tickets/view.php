@@ -77,6 +77,8 @@ $notesStmt->execute();
 $notes = $notesStmt->get_result()->fetch_all(MYSQLI_ASSOC);
 $notesStmt->close();
 
+}
+
 $page_title = 'Ticket #' . $id;
 require_once '../../includes/header.php';
 ?>
@@ -109,73 +111,74 @@ require_once '../../includes/header.php';
         </div>
         <div class="col-md-4">
           <?php if ($canUpdateTicketStatus): ?>
-          <?php if (hasPermission('tickets.manage')): ?>
-            <form method="post" class="vstack gap-2">
-              <div>
-                <label class="form-label">Status</label>
-                <select name="status" class="form-select">
-                  <?php foreach (['open','in_progress','resolved','closed'] as $st): ?>
-                    <option value="<?= $st ?>" <?= $ticket['status']===$st?'selected':'' ?>><?= ucfirst($st) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Priority</label>
-                <select name="priority" class="form-select">
-                  <?php foreach (['low','medium','high','urgent'] as $p): ?>
-                    <option value="<?= $p ?>" <?= $ticket['priority']===$p?'selected':'' ?>><?= ucfirst($p) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Assign to Role</label>
-                <select name="assigned_to_role_id" class="form-select" <?= $canManageTickets ? '' : 'disabled' ?>>
-                  <option value="">??"</option>
-                  <?php foreach ($roles as $r): ?>
-                    <option value="<?= (int)$r['id'] ?>" <?= ((int)$ticket['assigned_to_role_id']===(int)$r['id'])?'selected':'' ?>><?= htmlspecialchars($r['name']) ?> (<?= htmlspecialchars($r['slug']) ?>)</option>
-                  <?php endforeach; ?>
-                </select>
-                <?php if (!$canManageTickets): ?>
-                  <small class="text-muted">Only admins can reassign tickets.</small>
-                <?php endif; ?>
-              </div>
-              <div>
-                <label class="form-label">Assign to User (optional)</label>
-                <input type="number" name="assigned_to_user_id" class="form-control" value="<?= (int)($ticket['assigned_to_user_id'] ?? 0) ?: '' ?>" <?= $canManageTickets ? '' : 'disabled' ?>>
-              </div>
-              <div class="pt-2">
-                <button class="btn btn-primary" type="submit">Save</button>
-              </div>
-            </form>
-          <?php else: ?>
-            <div class="alert alert-info mb-0">
-              You can view ticket details but do not have permission to update the status.
-              </div>
-              <div>
-                <label class="form-label">Priority</label>
-                <select name="priority" class="form-select">
-                  <?php foreach (['low','medium','high','urgent'] as $p): ?>
-                    <option value="<?= $p ?>" <?= $ticket['priority']===$p?'selected':'' ?>><?= ucfirst($p) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Assign to Role</label>
-                <select name="assigned_to_role_id" class="form-select">
-                  <option value="">None</option>
-                  <?php foreach ($roles as $r): ?>
-                    <option value="<?= (int)$r['id'] ?>" <?= ((int)$ticket['assigned_to_role_id']===(int)$r['id'])?'selected':'' ?>><?= htmlspecialchars($r['name']) ?> (<?= htmlspecialchars($r['slug']) ?>)</option>
-                  <?php endforeach; ?>
-                </select>
-              </div>
-              <div>
-                <label class="form-label">Assign to User (optional)</label>
-                <input type="number" name="assigned_to_user_id" class="form-control" value="<?= (int)($ticket['assigned_to_user_id'] ?? 0) ?: '' ?>">
-              </div>
-              <div class="pt-2">
-                <button class="btn btn-primary" type="submit" name="update_ticket" value="1">Save</button>
-              </div>
-            </form>
+            <?php if (hasPermission('tickets.manage')): ?>
+              <form method="post" class="vstack gap-2">
+                <input type="hidden" name="update_ticket" value="1">
+                <div>
+                  <label class="form-label">Status</label>
+                  <select name="status" class="form-select">
+                    <?php foreach (['open','in_progress','resolved','closed'] as $st): ?>
+                      <option value="<?= $st ?>" <?= $ticket['status']===$st?'selected':'' ?>><?= ucfirst($st) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Priority</label>
+                  <select name="priority" class="form-select">
+                    <?php foreach (['low','medium','high','urgent'] as $p): ?>
+                      <option value="<?= $p ?>" <?= $ticket['priority']===$p?'selected':'' ?>><?= ucfirst($p) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Assign to Role</label>
+                  <select name="assigned_to_role_id" class="form-select">
+                    <option value="">None</option>
+                    <?php foreach ($roles as $r): ?>
+                      <option value="<?= (int)$r['id'] ?>" <?= ((int)$ticket['assigned_to_role_id']===(int)$r['id'])?'selected':'' ?>><?= htmlspecialchars($r['name']) ?> (<?= htmlspecialchars($r['slug']) ?>)</option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Assign to User (optional)</label>
+                  <input type="number" name="assigned_to_user_id" class="form-control" value="<?= (int)($ticket['assigned_to_user_id'] ?? 0) ?: '' ?>">
+                </div>
+                <div class="pt-2">
+                  <button class="btn btn-primary" type="submit">Save</button>
+                </div>
+              </form>
+            <?php else: ?>
+              <form method="post" class="vstack gap-2">
+                <input type="hidden" name="update_ticket" value="1">
+                <div class="alert alert-info mb-0">
+                  You can view ticket details but do not have permission to reassign.
+                </div>
+                <div>
+                  <label class="form-label">Priority</label>
+                  <select name="priority" class="form-select">
+                    <?php foreach (['low','medium','high','urgent'] as $p): ?>
+                      <option value="<?= $p ?>" <?= $ticket['priority']===$p?'selected':'' ?>><?= ucfirst($p) ?></option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Assign to Role</label>
+                  <select name="assigned_to_role_id" class="form-select">
+                    <option value="">None</option>
+                    <?php foreach ($roles as $r): ?>
+                      <option value="<?= (int)$r['id'] ?>" <?= ((int)$ticket['assigned_to_role_id']===(int)$r['id'])?'selected':'' ?>><?= htmlspecialchars($r['name']) ?> (<?= htmlspecialchars($r['slug']) ?>)</option>
+                    <?php endforeach; ?>
+                  </select>
+                </div>
+                <div>
+                  <label class="form-label">Assign to User (optional)</label>
+                  <input type="number" name="assigned_to_user_id" class="form-control" value="<?= (int)($ticket['assigned_to_user_id'] ?? 0) ?: '' ?>">
+                </div>
+                <div class="pt-2">
+                  <button class="btn btn-primary" type="submit" name="update_ticket" value="1">Save</button>
+                </div>
+              </form>
+            <?php endif; ?>
           <?php else: ?>
             <div class="small text-muted">
               <div><strong>Status:</strong> <?= htmlspecialchars($ticket['status']) ?></div>
