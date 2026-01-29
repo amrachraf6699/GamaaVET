@@ -1,6 +1,5 @@
 <?php
 require_once '../../includes/auth.php';
-require_once '../../includes/header.php';
 require_once '../../config/database.php';
 
 // Permission check
@@ -75,6 +74,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'POST' && isset($_POST['update_status'])) {
         $_SESSION['error'] = "Error updating purchase order status: " . $e->getMessage();
     }
 }
+
+$page_title = 'Purchase Order Details';
+require_once '../../includes/header.php';
+
 ?>
 
 <div class="container mt-4">
