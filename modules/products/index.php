@@ -12,6 +12,19 @@ if (isset($_GET['type']) && in_array($_GET['type'], ['material', 'final'], true)
     $filterType = $_GET['type'];
 }
 
+$customerFilter = null;
+if (isset($_GET['customer_id']) && is_numeric($_GET['customer_id']) && (int)$_GET['customer_id'] > 0) {
+    $customerFilter = (int)$_GET['customer_id'];
+}
+
+$customers = [];
+$customerResult = $conn->query("SELECT id, name FROM customers ORDER BY name");
+if ($customerResult) {
+    while ($customerRow = $customerResult->fetch_assoc()) {
+        $customers[] = $customerRow;
+    }
+}
+
 $page_title = $filterType === 'material'
     ? 'Raw Materials'
     : ($filterType === 'final' ? 'Final Products' : 'Products Management');
@@ -61,16 +74,43 @@ if (isset($_GET['delete']) && is_numeric($_GET['delete'])) {
     redirect('index.php');
 }
 
-// Fetch all products with category info
-$sql = "SELECT p.*, c1.name as category_name, c2.name as subcategory_name 
-        FROM products p 
-        LEFT JOIN categories c1 ON p.category_id = c1.id 
-        LEFT JOIN categories c2 ON p.subcategory_id = c2.id";
-$sql .= " ORDER BY p.name";
+// Fetch all products with category and customer info
+$whereClauses = [];
+$paramTypes = '';
+$paramValues = [];
 
 if ($filterType !== null) {
+    $whereClauses[] = 'p.type = ?';
+    $paramTypes .= 's';
+    $paramValues[] = $filterType;
+}
+
+if ($customerFilter !== null) {
+    $whereClauses[] = 'p.customer_id = ?';
+    $paramTypes .= 'i';
+    $paramValues[] = $customerFilter;
+}
+
+$sql = "SELECT p.*, c1.name as category_name, c2.name as subcategory_name, cust.name as customer_name
+        FROM products p
+        LEFT JOIN categories c1 ON p.category_id = c1.id
+        LEFT JOIN categories c2 ON p.subcategory_id = c2.id
+        LEFT JOIN customers cust ON p.customer_id = cust.id";
+
+if (!empty($whereClauses)) {
+    $sql .= ' WHERE ' . implode(' AND ', $whereClauses);
+}
+
+$sql .= " ORDER BY p.name";
+
+if (!empty($whereClauses)) {
     $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $filterType);
+    $bindParams = array_merge([$paramTypes], $paramValues);
+    $bindRefs = [];
+    foreach ($bindParams as $key => $value) {
+        $bindRefs[$key] = &$bindParams[$key];
+    }
+    call_user_func_array([$stmt, 'bind_param'], $bindRefs);
     $stmt->execute();
     $result = $stmt->get_result();
 } else {
@@ -99,7 +139,7 @@ foreach ($products as $productRow) {
         break;
     }
 }
-$productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColumn ? 1 : 0);
+$productsTableColspan = 8 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColumn ? 1 : 0);
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -122,6 +162,31 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
     </div>
 </div>
 
+<div class="mb-3">
+    <form class="d-flex flex-wrap gap-2 align-items-end" method="get">
+        <?php if ($filterType !== null): ?>
+            <input type="hidden" name="type" value="<?php echo htmlspecialchars($filterType); ?>">
+        <?php endif; ?>
+        <div class="me-1">
+            <label class="form-label mb-1 small text-muted">Customer</label>
+            <select class="form-select form-select-sm" name="customer_id">
+                <option value="">All Customers</option>
+                <?php foreach ($customers as $customer): ?>
+                    <option value="<?php echo (int)$customer['id']; ?>" <?php echo ($customerFilter !== null && $customerFilter === (int)$customer['id']) ? 'selected' : ''; ?>>
+                        <?php echo htmlspecialchars($customer['name']); ?>
+                    </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <button type="submit" class="btn btn-sm btn-outline-primary">Filter</button>
+        <?php if ($customerFilter !== null): ?>
+            <a href="index.php<?php echo $filterType !== null ? '?type=' . urlencode($filterType) : ''; ?>" class="btn btn-sm btn-outline-secondary">
+                Reset Customer
+            </a>
+        <?php endif; ?>
+    </form>
+</div>
+
 <div class="card">
     <div class="card-body">
         <div class="table-responsive">
@@ -134,6 +199,7 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
                         <th>Type</th>
                         <th>Category</th>
                         <th>Subcategory</th>
+                        <th>Customer</th>
                         <?php if ($showUnitPriceColumn): ?>
                         <th>Unit Price</th>
                         <?php endif; ?>
@@ -171,6 +237,7 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
                                 </td>
                                 <td><?php echo htmlspecialchars($row['category_name']); ?></td>
                                 <td><?php echo $row['subcategory_name'] ? htmlspecialchars($row['subcategory_name']) : '-'; ?></td>
+                                <td><?php echo $row['customer_name'] ? htmlspecialchars($row['customer_name']) : '-'; ?></td>
                                 <?php if ($showUnitPriceColumn): ?>
                                 <td>
                                     <?php if (canViewProductPrice($row['type'])): ?>
@@ -197,6 +264,7 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
                                         data-type="<?php echo htmlspecialchars($row['type']); ?>"
                                         data-category="<?php echo $row['category_id'] ?? ''; ?>"
                                         data-subcategory="<?php echo $row['subcategory_id'] ?? ''; ?>"
+                                        data-customer="<?php echo isset($row['customer_id']) ? (int)$row['customer_id'] : ''; ?>"
                                         data-unit_price="<?php echo canViewProductPrice($row['type']) ? $row['unit_price'] : ''; ?>"
                                         data-cost_price="<?php echo canViewProductCost($row['type']) ? ($row['cost_price'] ?? '') : ''; ?>"
                                         data-min_stock="<?php echo $row['min_stock_level'] ?? 0; ?>"
@@ -274,6 +342,19 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
                             <label for="subcategory_id" class="form-label">Subcategory</label>
                             <select class="form-select" id="subcategory_id" name="subcategory_id">
                                 <option value="">-- Select Subcategory --</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="customer_id" class="form-label">Customer</label>
+                            <select class="form-select js-searchable-select" id="customer_id" name="customer_id">
+                                <option value="">-- Select Customer --</option>
+                                <?php foreach ($customers as $customer): ?>
+                                    <option value="<?php echo (int)$customer['id']; ?>">
+                                        <?php echo htmlspecialchars($customer['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
                             </select>
                         </div>
                     </div>
@@ -368,6 +449,19 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
                         </div>
                     </div>
                     <div class="row">
+                        <div class="col-md-12 mb-3">
+                            <label for="edit_customer_id" class="form-label">Customer</label>
+                            <select class="form-select js-searchable-select" id="edit_customer_id" name="customer_id">
+                                <option value="">-- Select Customer --</option>
+                                <?php foreach ($customers as $customer): ?>
+                                    <option value="<?php echo (int)$customer['id']; ?>">
+                                        <?php echo htmlspecialchars($customer['name']); ?>
+                                    </option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
                         <div class="col-md-6 mb-3" data-pricing-group="unit">
                             <label for="edit_unit_price" class="form-label">Unit Price</label>
                             <input type="number" class="form-control" id="edit_unit_price" name="unit_price" min="0" step="0.01" data-role="unit-price">
@@ -430,6 +524,25 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
         });
     };
 
+    const initSearchableSelects = () => {
+        if (typeof jQuery === 'undefined' || typeof jQuery.fn.select2 === 'undefined') {
+            return;
+        }
+
+        $('.js-searchable-select').each(function () {
+            const $select = $(this);
+            if ($select.hasClass('select2-hidden-accessible')) {
+                return;
+            }
+
+            const $modal = $select.closest('.modal');
+            $select.select2({
+                width: '100%',
+                dropdownParent: $modal.length ? $modal : $(document.body)
+            });
+        });
+    };
+
     $(document).ready(function() {
         if ($.fn.DataTable && $('#productsTable').length && !$.fn.DataTable.isDataTable('#productsTable')) {
             $('#productsTable').DataTable({
@@ -440,6 +553,7 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
         }
 
         initProductPricingControls();
+        initSearchableSelects();
 
         // Load subcategories when category changes
         $('#category_id').change(function() {
@@ -489,6 +603,8 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
             $('#edit_cost_price').val(cost_price);
             $('#edit_min_stock_level').val(min_stock);
             $('#edit_description').val(description);
+            const customer = $(this).data('customer') || '';
+            $('#edit_customer_id').val(customer).trigger('change');
 
             const editTypeField = document.getElementById('edit_type');
             if (editTypeField) {
@@ -544,6 +660,9 @@ $productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
             } else {
                 $('#edit_subcategory_id').html('<option value="">-- Select Subcategory --</option>');
             }
+        });
+        $('#addProductModal, #editProductModal').on('shown.bs.modal', function () {
+            initSearchableSelects();
         });
     });
 </script>

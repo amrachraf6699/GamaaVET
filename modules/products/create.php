@@ -41,6 +41,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $type = sanitize($_POST['type']);
         $category_id = (int)$_POST['category_id'];
         $subcategory_id = !empty($_POST['subcategory_id']) ? (int)$_POST['subcategory_id'] : NULL;
+        $customer_id = isset($_POST['customer_id']) && $_POST['customer_id'] !== '' ? (int)$_POST['customer_id'] : NULL;
         $unit_price = (float)$_POST['unit_price'];
         $cost_price = !empty($_POST['cost_price']) ? (float)$_POST['cost_price'] : NULL;
         $min_stock_level = !empty($_POST['min_stock_level']) ? (int)$_POST['min_stock_level'] : 0;
@@ -100,17 +101,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Insert product
         $insert_sql = "INSERT INTO products 
-                      (name, sku, barcode, type, category_id, subcategory_id, 
+                      (name, sku, barcode, type, category_id, subcategory_id, customer_id,
                        unit_price, cost_price, min_stock_level, description, image) 
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
         
         $insert_stmt = $conn->prepare($insert_sql);
         if (!$insert_stmt) {
             throw new Exception("Prepare failed: " . $conn->error);
         }
         
-        $insert_stmt->bind_param("ssssiidddss", 
-            $name, $sku, $barcode, $type, $category_id, $subcategory_id,
+        $insert_stmt->bind_param("ssssiiidddss", 
+            $name, $sku, $barcode, $type, $category_id, $subcategory_id, $customer_id,
             $unit_price, $cost_price, $min_stock_level, $description, $image_name);
         
         if (!$insert_stmt->execute()) {

@@ -58,6 +58,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 $type = sanitize($data['type']);
                 $category_id = sanitize($data['category_id']);
                 $subcategory_id = isset($data['subcategory_id']) ? sanitize($data['subcategory_id']) : NULL;
+                $customer_id = isset($data['customer_id']) && $data['customer_id'] !== '' ? (int)$data['customer_id'] : NULL;
                 $unit_price = sanitize($data['unit_price']);
                 $cost_price = isset($data['cost_price']) ? sanitize($data['cost_price']) : NULL;
                 $min_stock_level = isset($data['min_stock_level']) ? sanitize($data['min_stock_level']) : 0;
@@ -80,12 +81,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 
                 // Insert product
                 $insert_sql = "INSERT INTO products 
-                               (name, sku, barcode, type, category_id, subcategory_id, unit_price, 
+                               (name, sku, barcode, type, category_id, subcategory_id, customer_id, unit_price, 
                                 cost_price, min_stock_level, description) 
-                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $insert_stmt = $conn->prepare($insert_sql);
-                $insert_stmt->bind_param("ssssiiddds", $name, $sku, $barcode, $type, $category_id, 
-                                        $subcategory_id, $unit_price, $cost_price, $min_stock_level, $description);
+                $insert_stmt->bind_param("ssssiiiddds", $name, $sku, $barcode, $type, $category_id, 
+                                        $subcategory_id, $customer_id, $unit_price, $cost_price, $min_stock_level, $description);
                 
                 if ($insert_stmt->execute()) {
                     $success_count++;
@@ -141,7 +142,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['csv_file'])) {
                 <li><strong>category_id</strong> - ID of main category (required)</li>
                 <li><strong>unit_price</strong> - Selling price (required)</li>
             </ul>
-            <p>Optional columns: barcode, subcategory_id, cost_price, min_stock_level, description</p>
+            <p>Optional columns: barcode, subcategory_id, customer_id, cost_price, min_stock_level, description</p>
             <hr>
             <p class="mb-0">Download <a href="sample_products.csv" download>sample CSV file</a> for reference.</p>
         </div>

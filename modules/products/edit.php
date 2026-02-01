@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $type = sanitize($_POST['type']);
     $category_id = sanitize($_POST['category_id']);
     $subcategory_id = !empty($_POST['subcategory_id']) ? sanitize($_POST['subcategory_id']) : null;
+    $customer_id = isset($_POST['customer_id']) && $_POST['customer_id'] !== '' ? (int)$_POST['customer_id'] : null;
     $unit_price = sanitize($_POST['unit_price']);
     $cost_price = isset($_POST['cost_price']) && $_POST['cost_price'] !== '' ? sanitize($_POST['cost_price']) : null;
     $min_stock_level = !empty($_POST['min_stock_level']) ? sanitize($_POST['min_stock_level']) : 0;
@@ -85,18 +86,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $update_sql = "UPDATE products SET 
-                   name = ?, sku = ?, barcode = ?, type = ?, category_id = ?, subcategory_id = ?, 
+                   name = ?, sku = ?, barcode = ?, type = ?, category_id = ?, subcategory_id = ?, customer_id = ?,
                    unit_price = ?, cost_price = ?, min_stock_level = ?, description = ?, image = ? 
                    WHERE id = ?";
     $update_stmt = $conn->prepare($update_sql);
     $update_stmt->bind_param(
-        "ssssiidddssi",
+        "ssssiiidddssi",
         $name,
         $sku,
         $barcode,
         $type,
         $category_id,
         $subcategory_id,
+        $customer_id,
         $unit_price,
         $cost_price,
         $min_stock_level,
@@ -133,6 +135,14 @@ $catResult = $conn->query("SELECT id, name FROM categories WHERE parent_id IS NU
 if ($catResult) {
     while ($row = $catResult->fetch_assoc()) {
         $categories[] = $row;
+    }
+}
+
+$customers = [];
+$customerResult = $conn->query("SELECT id, name FROM customers ORDER BY name");
+if ($customerResult) {
+    while ($customerRow = $customerResult->fetch_assoc()) {
+        $customers[] = $customerRow;
     }
 }
 
@@ -207,6 +217,19 @@ require_once '../../includes/header.php';
             </div>
         </div>
         <div class="row">
+            <div class="col-md-12 mb-3">
+                <label class="form-label">Customer</label>
+                <select class="form-select js-searchable-select" name="customer_id">
+                    <option value="">-- Select Customer --</option>
+                    <?php foreach ($customers as $customer): ?>
+                        <option value="<?= (int)$customer['id'] ?>" <?= (int)$customer['id'] === (int)$product['customer_id'] ? 'selected' : '' ?>>
+                            <?= htmlspecialchars($customer['name']) ?>
+                        </option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+        <div class="row">
             <div class="col-md-6 mb-3" data-pricing-group="unit">
                 <label class="form-label">Unit Price</label>
                 <input type="number" class="form-control" name="unit_price" min="0" step="0.01" value="<?= htmlspecialchars($product['unit_price']) ?>" data-role="unit-price">
@@ -257,6 +280,21 @@ require_once '../../includes/header.php';
         if (costInput) costInput.required = showCost;
     };
 
+    const initStandaloneSearchableSelects = () => {
+        if (typeof jQuery === 'undefined' || typeof jQuery.fn.select2 === 'undefined') {
+            return;
+        }
+        $('.js-searchable-select').each(function () {
+            const $select = $(this);
+            if ($select.hasClass('select2-hidden-accessible')) {
+                return;
+            }
+            $select.select2({
+                width: '100%'
+            });
+        });
+    };
+
     document.addEventListener('DOMContentLoaded', function () {
         const typeSelect = document.querySelector('.js-product-type');
         if (typeSelect) {
@@ -265,6 +303,7 @@ require_once '../../includes/header.php';
                 toggleStandalonePricingGroups(this);
             });
         }
+        initStandaloneSearchableSelects();
     });
 </script>
 

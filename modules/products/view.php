@@ -22,6 +22,17 @@ if (!$product) {
 $category = getCategoryById($product['category_id']);
 $subcategory = $product['subcategory_id'] ? getCategoryById($product['subcategory_id']) : null;
 
+$customerName = null;
+if (!empty($product['customer_id'])) {
+    $customerStmt = $conn->prepare("SELECT name FROM customers WHERE id = ?");
+    $customerStmt->bind_param("i", $product['customer_id']);
+    $customerStmt->execute();
+    $customerResult = $customerStmt->get_result();
+    $customerRow = $customerResult->fetch_assoc();
+    $customerName = $customerRow['name'] ?? null;
+    $customerStmt->close();
+}
+
 // Fetch inventory quantities
 $inventoryQuantities = getInventoryQuantitiesForProduct($product_id);
 
@@ -36,7 +47,7 @@ if (!empty($normalizedDescription)) {
     $normalizedDescription = str_replace(["\\r\\n", "\\n", "\\r"], "\n", $normalizedDescription);
 }
 
-$uploadDir = __DIR__ . '../../assets/uploads/products/';
+$uploadDir = __DIR__ . '/../../assets/uploads/products/';
 $productImageName = $product['image'] ?? '';
 $productImageFilePath = $productImageName ? $uploadDir . $productImageName : '';
 $productImageUrl = ($productImageName && file_exists($productImageFilePath))
@@ -86,6 +97,10 @@ include '../../includes/header.php';
                                         <tr>
                                             <th>Subcategory</th>
                                             <td><?= $subcategory ? htmlspecialchars($subcategory['name']) : 'N/A' ?></td>
+                                        </tr>
+                                        <tr>
+                                            <th>Customer</th>
+                                            <td><?= $customerName ? htmlspecialchars($customerName) : 'All Customers' ?></td>
                                         </tr>
                                         <tr>
                                             <th>Type</th>
