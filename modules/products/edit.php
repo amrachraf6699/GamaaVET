@@ -37,7 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $image_name = null;
     if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
-        $upload_dir = '../../assets/uploads/products/';
+        $upload_dir = rtrim(__DIR__ . '/../../assets/uploads/products/', '/\\') . DIRECTORY_SEPARATOR;
+
+        if (!file_exists($upload_dir) && !mkdir($upload_dir, 0755, true)) {
+            setAlert('danger', 'Could not create upload directory.');
+            redirect('index.php');
+        }
         $file_ext = pathinfo($_FILES['image']['name'], PATHINFO_EXTENSION);
         $image_name = 'product_' . time() . '.' . strtolower($file_ext);
         $upload_path = $upload_dir . $image_name;
