@@ -605,6 +605,7 @@ $productsTableColspan = 8 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
             $('#edit_description').val(description);
             const customer = $(this).data('customer') || '';
             $('#edit_customer_id').val(customer).trigger('change');
+            $('#edit_category_id').val(category).trigger('change');
 
             const editTypeField = document.getElementById('edit_type');
             if (editTypeField) {
@@ -639,9 +640,9 @@ $productsTableColspan = 8 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColu
 
 
         // Also handle subcategory loading for edit modal
-        $('#edit_category_id').change(function() {
-            var category_id = $(this).val();
-            if (category_id) {
+            $('#edit_category_id').change(function() {
+                var category_id = $(this).val();
+                if (category_id) {
                 $.ajax({
                     url: '../../ajax/get_subcategories.php',
                     type: 'GET',
