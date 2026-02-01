@@ -36,6 +36,13 @@ if (!empty($normalizedDescription)) {
     $normalizedDescription = str_replace(["\\r\\n", "\\n", "\\r"], "\n", $normalizedDescription);
 }
 
+$uploadDir = __DIR__ . '../../assets/uploads/products/';
+$productImageName = $product['image'] ?? '';
+$productImageFilePath = $productImageName ? $uploadDir . $productImageName : '';
+$productImageUrl = ($productImageName && file_exists($productImageFilePath))
+    ? '../../assets/uploads/products/' . rawurlencode($productImageName)
+    : null;
+
 // Set page title
 $pageTitle = "View Product: " . htmlspecialchars($product['name']);
 
@@ -105,6 +112,18 @@ include '../../includes/header.php';
                             </div>
                         </div>
                         <div class="col-md-6">
+                            <?php if ($productImageUrl): ?>
+                                <div class="mb-4 text-center">
+                                    <img src="<?php echo $productImageUrl; ?>"
+                                         alt="<?php echo htmlspecialchars($product['name']); ?> image"
+                                         class="img-fluid rounded"
+                                         style="max-height: 320px; width: auto; object-fit: contain; border: 1px solid #dee2e6;">
+                                </div>
+                            <?php else: ?>
+                                <div class="mb-4 text-center text-muted">
+                                    <small>No image uploaded</small>
+                                </div>
+                            <?php endif; ?>
                             <h6>Description</h6>
                             <p><?= $normalizedDescription ? nl2br(htmlspecialchars($normalizedDescription)) : 'No description provided.' ?></p>
                             

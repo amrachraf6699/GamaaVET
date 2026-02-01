@@ -66,9 +66,6 @@ $sql = "SELECT p.*, c1.name as category_name, c2.name as subcategory_name
         FROM products p 
         LEFT JOIN categories c1 ON p.category_id = c1.id 
         LEFT JOIN categories c2 ON p.subcategory_id = c2.id";
-if ($filterType !== null) {
-    $sql .= " WHERE p.type = ?";
-}
 $sql .= " ORDER BY p.name";
 
 if ($filterType !== null) {
@@ -80,9 +77,29 @@ if ($filterType !== null) {
     $result = $conn->query($sql);
 }
 
+$products = [];
+if ($result) {
+    while ($row = $result->fetch_assoc()) {
+        $products[] = $row;
+    }
+}
+
 $canViewAnyUnitPrice = hasExplicitPermission('products.final.price.view') || hasExplicitPermission('products.material.price.view');
 $canViewAnyCostPrice = hasExplicitPermission('products.final.cost.view') || hasExplicitPermission('products.material.cost.view');
-$productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPrice ? 1 : 0);
+$showUnitPriceColumn = false;
+$showCostPriceColumn = false;
+foreach ($products as $productRow) {
+    if (!$showUnitPriceColumn && $canViewAnyUnitPrice && canViewProductPrice($productRow['type'])) {
+        $showUnitPriceColumn = true;
+    }
+    if (!$showCostPriceColumn && $canViewAnyCostPrice && canViewProductCost($productRow['type'])) {
+        $showCostPriceColumn = true;
+    }
+    if ($showUnitPriceColumn && $showCostPriceColumn) {
+        break;
+    }
+}
+$productsTableColspan = 7 + ($showUnitPriceColumn ? 1 : 0) + ($showCostPriceColumn ? 1 : 0);
 ?>
 
 <div class="d-flex justify-content-between align-items-center mb-4">
@@ -112,24 +129,40 @@ $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPri
                 <thead>
                     <tr>
                         <th>SKU</th>
+                        <th>Image</th>
                         <th>Name</th>
                         <th>Type</th>
                         <th>Category</th>
                         <th>Subcategory</th>
-                        <?php if ($canViewAnyUnitPrice): ?>
+                        <?php if ($showUnitPriceColumn): ?>
                         <th>Unit Price</th>
                         <?php endif; ?>
-                        <?php if ($canViewAnyCostPrice): ?>
+                        <?php if ($showCostPriceColumn): ?>
                         <th>Cost Price</th>
                         <?php endif; ?>
                         <th>Actions</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <?php if ($result->num_rows > 0): ?>
-                        <?php while ($row = $result->fetch_assoc()): ?>
+                    <?php if (count($products) > 0): ?>
+                        <?php foreach ($products as $row): ?>
                             <tr>
+                                <?php
+                                $imageName = $row['image'] ?? '';
+                                $productImagePath = $imageName ? __DIR__ . '/../../assets/uploads/products/' . $imageName : '';
+                                $hasProductImage = $imageName && file_exists($productImagePath);
+                                $productImageUrl = $hasProductImage ? '../../assets/uploads/products/' . rawurlencode($imageName) : '';
+                                ?>
                                 <td><?php echo htmlspecialchars($row['sku']); ?></td>
+                                <td class="text-center align-middle">
+                                    <?php if ($hasProductImage): ?>
+                                        <img src="<?php echo $productImageUrl; ?>"
+                                             alt="<?php echo htmlspecialchars($row['name']); ?> image"
+                                             style="width: 52px; height: 52px; object-fit: cover; border-radius: 6px; border: 1px solid #dee2e6;">
+                                    <?php else: ?>
+                                        <span class="text-muted small">No image</span>
+                                    <?php endif; ?>
+                                </td>
                                 <td><?php echo htmlspecialchars($row['name']); ?></td>
                                 <td>
                                     <span class="badge bg-<?php echo getProductTypeColor($row['type']); ?>">
@@ -138,21 +171,17 @@ $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPri
                                 </td>
                                 <td><?php echo htmlspecialchars($row['category_name']); ?></td>
                                 <td><?php echo $row['subcategory_name'] ? htmlspecialchars($row['subcategory_name']) : '-'; ?></td>
-                                <?php if ($canViewAnyUnitPrice): ?>
+                                <?php if ($showUnitPriceColumn): ?>
                                 <td>
                                     <?php if (canViewProductPrice($row['type'])): ?>
                                         <?php echo number_format($row['unit_price'], 2); ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">Hidden</span>
                                     <?php endif; ?>
                                 </td>
                                 <?php endif; ?>
-                                <?php if ($canViewAnyCostPrice): ?>
+                                <?php if ($showCostPriceColumn): ?>
                                 <td>
                                     <?php if (canViewProductCost($row['type'])): ?>
                                         <?php echo $row['cost_price'] ? number_format($row['cost_price'], 2) : '-'; ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">Hidden</span>
                                     <?php endif; ?>
                                 </td>
                                 <?php endif; ?>
@@ -181,7 +210,7 @@ $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPri
                                     </a>
                                 </td>
                             </tr>
-                        <?php endwhile; ?>
+                        <?php endforeach; ?>
                     <?php else: ?>
                         <tr>
                             <td colspan="<?php echo $productsTableColspan; ?>" class="text-center">No products found</td>
@@ -300,7 +329,8 @@ $productsTableColspan = 6 + ($canViewAnyUnitPrice ? 1 : 0) + ($canViewAnyCostPri
                         </div>
                         <div class="col-md-6 mb-3">
                             <label for="edit_sku" class="form-label">SKU</label>
-                            <input type="text" class="form-control" id="edit_sku" name="sku" required>
+                            <input type="text" class="form-control" id="edit_sku" name="sku" required readonly>
+                            <small class="text-muted">SKU is auto-generated and cannot be changed here.</small>
                         </div>
                     </div>
                     <div class="row">
