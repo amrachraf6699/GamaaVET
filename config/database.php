@@ -1,9 +1,24 @@
 <?php
+// Allow overriding the defaults using config/local.php (ignored by git)
+$localConfigPath = __DIR__ . '/local.php';
+if (file_exists($localConfigPath)) {
+    require_once $localConfigPath;
+}
+
 // Database configuration
-define('DB_HOST', 'localhost');
-define('DB_USER', 'root');
-define('DB_PASS', '');
-define('DB_NAME', 'gammavet_stg3');
+$defaults = [
+    'DB_HOST' => 'localhost',
+    'DB_USER' => 'root',
+    'DB_PASS' => '',
+    'DB_NAME' => 'gammavet_stg3',
+    'BASE_URL' => 'http://localhost/GammaVET/'
+];
+
+foreach ($defaults as $const => $value) {
+    if (!defined($const)) {
+        define($const, $value);
+    }
+}
 
 // Create connection
 $conn = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
@@ -16,8 +31,7 @@ if ($conn->connect_error) {
     die("Connection failed: " . $conn->connect_error);
 }
 
-// set BASE_URL
-define('BASE_URL', 'http://localhost/GammaVET/');
+// BASE_URL is defined above so it can be overridden by config/local.php.
 
 // Set charset
 $conn->set_charset("utf8mb4");

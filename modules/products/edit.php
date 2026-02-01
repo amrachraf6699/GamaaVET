@@ -175,7 +175,8 @@ require_once '../../includes/header.php';
             </div>
             <div class="col-md-6 mb-3">
                 <label class="form-label">SKU</label>
-                <input type="text" class="form-control" name="sku" value="<?= htmlspecialchars($product['sku']) ?>" required>
+                <input type="text" class="form-control" value="<?= htmlspecialchars($product['sku']) ?>" readonly>
+                <input type="hidden" name="sku" value="<?= htmlspecialchars($product['sku']) ?>">
             </div>
         </div>
         <div class="row">
